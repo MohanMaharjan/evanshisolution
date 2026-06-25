@@ -1,0 +1,182 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+ 
+}
+
+
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+// Permission Model
+model Permission {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  module      String
+  action      String   // CREATE, READ, UPDATE, DELETE
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+// Role Model
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions RolePermission[]
+  users       User[]
+
+  @@map("roles")
+}
+
+// Role-Permission Junction Table
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+  createdAt    DateTime   @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// User Model
+model User {
+  id            Int        @id @default(autoincrement())
+  email         String     @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  avatar        String?
+ 
+  status        UserStatus @default(ACTIVE)
+  emailVerified DateTime?
+  lastLogin     DateTime?
+  mustChangePassword Boolean @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  roleId Int
+  role   Role @relation(fields: [roleId], references: [id])
+
+  // Many-to-Many relationship with departments (for faculty/staff)
+  userDepartments UserDepartment[]
+
+  // Relations based on user level
+  studentProfile    StudentProfile?
+  facultyProfile    FacultyProfile?
+
+  activityLogs ActivityLog[]
+
+  @@map("users")
+}
+
+// User-Department Junction Table (Many-to-Many for Faculty/Staff)
+model UserDepartment {
+  id           Int        @id @default(autoincrement())
+  userId       Int
+  departmentId Int
+  isPrimary    Boolean    @default(false)  // To mark primary department
+  assignedAt   DateTime   @default(now())
+  assignedBy   Int?       // User ID who made the assignment
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, departmentId])
+  @@map("user_departments")
+}
+
+// Student Profile
+model StudentProfile {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @unique
+  rollNumber    String   @unique
+  enrollmentNo  String?  @unique
+  dateOfBirth   DateTime
+  gender        String
+  address       String?
+  bloodGroup    String?
+  guardianName  String?
+  guardianPhone String?
+  admissionDate DateTime
+  currentSemester Int?
+  departmentId  Int
+  program       String?
+  
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id])
+
+  @@map("student_profiles")
+}
+
+// Faculty Profile
+model FacultyProfile {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @unique
+  employeeId    String   @unique
+  designation   String
+  specialization String?
+  dateOfJoining DateTime
+  qualification String?
+  experience    Int?
+  bio           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("faculty_profiles")
+}
+// Activity Log
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  action    String
+  module    String
+  details   Json?     // Changed from String? with @db.Json
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
+// Department Model
+model Department {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  code      String?  @unique  // Department code (e.g., CS, EE, ME)
+  headId    Int?     // Department head (faculty user ID)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Faculty/Staff who belong to this department (many-to-many)
+  userDepartments UserDepartment[]
+  
+  // Students who belong to this department (one-to-many)
+  studentProfiles StudentProfile[]
+
+  @@map("departments")
+}
