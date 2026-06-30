@@ -11,8 +11,6 @@ import {
   Plus,
   Search,
   Filter,
-  ChevronLeft,
-  ChevronRight,
   Download,
   UserPlus,
   X,
@@ -173,12 +171,6 @@ export default function UsersPage() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0,
-  });
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ roleId: '', status: '' });
   const [showFilters, setShowFilters] = useState(false);
@@ -186,6 +178,7 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [actionMenu, setActionMenu] = useState(null);
+  const [totalCount, setTotalCount] = useState(0);
 
   // ==================== FETCH META DATA ====================
   useEffect(() => {
@@ -218,9 +211,9 @@ export default function UsersPage() {
       else setLoading(true);
 
       try {
+        // Fetch all users without pagination
         const params = new URLSearchParams({
-          page: pagination.page,
-          limit: pagination.limit,
+          limit: '1000', // Fetch all users
           search,
         });
 
@@ -240,9 +233,7 @@ export default function UsersPage() {
 
         const data = await response.json();
         setUsers(data.users || []);
-        setPagination(
-          data.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }
-        );
+        setTotalCount(data.pagination?.total || data.users?.length || 0);
       } catch (error) {
         console.error('Failed to fetch users:', error);
         toast.error(`Failed to load users: ${error.message}`);
@@ -252,7 +243,7 @@ export default function UsersPage() {
         setRefreshing(false);
       }
     },
-    [pagination.page, pagination.limit, search, filters]
+    [search, filters]
   );
 
   useEffect(() => {
@@ -261,11 +252,6 @@ export default function UsersPage() {
 
   // ==================== HANDLERS ====================
   const handleRefresh = () => fetchUsers(true);
-
-  const handlePageChange = (newPage) => {
-    if (newPage < 1 || newPage > pagination.totalPages) return;
-    setPagination((prev) => ({ ...prev, page: newPage }));
-  };
 
   const handleDelete = async () => {
     if (!deleteConfirm) return;
@@ -391,7 +377,7 @@ export default function UsersPage() {
       header: 'Department',
       render: (user) => (
         <span className="text-xs text-gray-600">
-          {user.department?.name || '—'}
+          {user.userDepartments?.[0]?.department?.name || '—'}
         </span>
       ),
     },
@@ -493,7 +479,7 @@ export default function UsersPage() {
             <div className="flex items-center gap-2 mt-1">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[11px] font-medium">
                 <Users className="w-3 h-3" />
-                {pagination.total} Total
+                {totalCount} Total
               </span>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[11px] font-medium">
                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
@@ -537,7 +523,6 @@ export default function UsersPage() {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setPagination((prev) => ({ ...prev, page: 1 }));
               }}
               className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -579,7 +564,6 @@ export default function UsersPage() {
                     value={filters.roleId}
                     onChange={(e) => {
                       setFilters((prev) => ({ ...prev, roleId: e.target.value }));
-                      setPagination((prev) => ({ ...prev, page: 1 }));
                     }}
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
@@ -600,7 +584,6 @@ export default function UsersPage() {
                     value={filters.status}
                     onChange={(e) => {
                       setFilters((prev) => ({ ...prev, status: e.target.value }));
-                      setPagination((prev) => ({ ...prev, page: 1 }));
                     }}
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
@@ -632,53 +615,6 @@ export default function UsersPage() {
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <Table columns={columns} data={users} isLoading={loading} />
       </div>
-
-      {/* ===== PAGINATION ===== */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 py-3 px-6">
-          <p className="text-xs text-gray-500">
-            Page {pagination.page} of {pagination.totalPages} ({pagination.total}{' '}
-            users)
-          </p>
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={() => handlePageChange(pagination.page - 1)}
-              disabled={pagination.page === 1}
-              className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-
-            {Array.from(
-              { length: Math.min(pagination.totalPages, 5) },
-              (_, i) => {
-                const pageNum = i + 1;
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => handlePageChange(pageNum)}
-                    className={`w-7 h-7 rounded-md text-xs font-medium ${
-                      pagination.page === pageNum
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              }
-            )}
-
-            <button
-              onClick={() => handlePageChange(pagination.page + 1)}
-              disabled={pagination.page === pagination.totalPages}
-              className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ===== CREATE/EDIT USER MODAL ===== */}
       <Modal

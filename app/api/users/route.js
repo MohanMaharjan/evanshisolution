@@ -1,21 +1,19 @@
 // app/api/users/route.js
-
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page')) || 1;
-    const limit = parseInt(searchParams.get('limit')) || 10;
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
-    const roleId = searchParams.get('roleId');
-    const status = searchParams.get('status');
+    const role = searchParams.get('role') || '';
+    const status = searchParams.get('status') || '';
 
+    // Build where clause
     const where = {};
+    
     if (search) {
       where.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },
@@ -23,8 +21,14 @@ export async function GET(request) {
         { email: { contains: search, mode: 'insensitive' } },
       ];
     }
-    if (roleId && roleId !== '') where.roleId = parseInt(roleId);
-    if (status && status !== '') where.status = status;
+    
+    if (role) {
+      where.role = { name: role };
+    }
+    
+    if (status) {
+      where.status = status;
+    }
 
     // Fetch users with correct relations based on your schema
     const [users, total] = await Promise.all([
@@ -39,66 +43,72 @@ export async function GET(request) {
               name: true,
             },
           },
-          // Use userDepartments instead of department
           userDepartments: {
             include: {
               department: {
                 select: {
                   id: true,
                   name: true,
+                  code: true,
                 },
               },
             },
           },
-          // Include profiles if needed
-          studentProfile: {
+          student: {
             select: {
-              rollNumber: true,
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              rollNo: true,
               enrollmentNo: true,
-              program: true,
+              status: true,
+              dateOfBirth: true,
+              gender: true,
+              address: true,
+              bloodGroup: true,
+              guardianName: true,
+              guardianContact: true,
+              guardianEmail: true,
+              emergencyContact: true,
+              examRollNumber: true,
+              enrollmentDate: true,
             },
           },
-          facultyProfile: {
+          faculty: {
             select: {
-              employeeId: true,
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+              address: true,
               designation: true,
+              specialization: true,
+              qualification: true,
+              joinedDate: true,       // ✅ Correct field name from schema
+              cv: true,
+              profilePicture: true,
+              status: true,
+              userId: true,
+              userDepartmentId: true,
+              createdAt: true,
+              updatedAt: true,
+              // Remove these as they don't exist in your schema:
+              // dateOfJoining: true,  ❌ Doesn't exist
+              // experience: true,     ❌ Doesn't exist
+              // bio: true,            ❌ Doesn't exist
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: {
+          createdAt: 'desc',
+        },
       }),
       prisma.user.count({ where }),
     ]);
 
-    // Transform the data to include department from userDepartments
-    const transformedUsers = users.map((user) => {
-      // Get the primary department or first department
-      let department = null;
-      if (user.userDepartments && user.userDepartments.length > 0) {
-        const primaryDept = user.userDepartments.find((ud) => ud.isPrimary);
-        department = primaryDept
-          ? primaryDept.department
-          : user.userDepartments[0].department;
-      }
-
-      // Remove userDepartments from the response
-      const { userDepartments, ...userWithoutDepartments } = user;
-
-      return {
-        ...userWithoutDepartments,
-        department,
-      };
-    });
-
-    // Add avatar URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const usersWithAvatar = transformedUsers.map((user) => ({
-      ...user,
-      avatarUrl: user.avatar ? `${baseUrl}${user.avatar}` : null,
-    }));
-
     return NextResponse.json({
-      users: usersWithAvatar,
+      users,
       pagination: {
         page,
         limit,
@@ -107,150 +117,9 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('Error fetching users:', error);
     return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request) {
-  try {
-    // Parse FormData
-    const formData = await request.formData();
-    const body = {};
-    
-    for (const [key, value] of formData.entries()) {
-      if (key === 'avatar') {
-        body.avatar = value; // File object
-      } else {
-        body[key] = value;
-      }
-    }
-
-    // Validate required fields
-    if (!body.email || !body.password || !body.firstName || !body.lastName) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: body.email },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
-        { status: 409 }
-      );
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(body.password, 10);
-
-    // Prepare user data
-    const userData = {
-      email: body.email,
-      password: hashedPassword,
-      firstName: body.firstName,
-      lastName: body.lastName,
-      phone: body.phone || null,
-      status: body.status || 'ACTIVE',
-      roleId: parseInt(body.roleId), // roleId is required in your schema
-    };
-
-    // Create user
-    const user = await prisma.user.create({
-      data: userData,
-    });
-
-    // Handle department assignment if provided
-    if (body.departmentId && body.departmentId !== '') {
-      await prisma.userDepartment.create({
-        data: {
-          userId: user.id,
-          departmentId: parseInt(body.departmentId),
-          isPrimary: true,
-        },
-      });
-    }
-
-    // Handle avatar upload
-    const avatarFile = formData.get('avatar');
-    if (avatarFile && avatarFile.size > 0) {
-      try {
-        const uploadDir = path.join(process.cwd(), 'public/uploads/avatars');
-        await mkdir(uploadDir, { recursive: true });
-        
-        const bytes = await avatarFile.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        const ext = path.extname(avatarFile.name);
-        const filename = `user-${user.id}-${Date.now()}${ext}`;
-        const filepath = path.join(uploadDir, filename);
-        
-        await writeFile(filepath, buffer);
-        
-        const avatarPath = `/uploads/avatars/${filename}`;
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { avatar: avatarPath },
-        });
-        
-        user.avatar = avatarPath;
-      } catch (uploadError) {
-        console.error('Avatar upload failed:', uploadError);
-      }
-    }
-
-    // Fetch user with relations
-    const userWithRelations = await prisma.user.findUnique({
-      where: { id: user.id },
-      include: {
-        role: {
-          select: { id: true, name: true },
-        },
-        userDepartments: {
-          include: {
-            department: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // Transform to include department
-    let department = null;
-    if (userWithRelations?.userDepartments?.length > 0) {
-      const primaryDept = userWithRelations.userDepartments.find((ud) => ud.isPrimary);
-      department = primaryDept
-        ? primaryDept.department
-        : userWithRelations.userDepartments[0].department;
-    }
-
-    const { userDepartments, ...userWithoutDepartments } = userWithRelations || {};
-
-    return NextResponse.json(
-      {
-        user: {
-          ...userWithoutDepartments,
-          department,
-        },
-        message: 'User created successfully',
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error('Failed to create user:', error);
-    return NextResponse.json(
-      { error: error.message },
+      { error: error.message || 'Failed to fetch users' },
       { status: 500 }
     );
   }

@@ -6,10 +6,12 @@ generator client {
 
 datasource db {
   provider = "postgresql"
- 
 }
 
-
+enum Status {
+  active
+  inactive
+}
 
 enum UserStatus {
   ACTIVE
@@ -17,29 +19,82 @@ enum UserStatus {
   SUSPENDED
 }
 
-// Permission Model
+enum CourseType {
+  core
+  elective
+}
+
+enum Semester {
+  semester1
+  semester2
+  semester3
+  semester4
+  semester5
+  semester6
+  semester7
+  semester8
+}
+
+enum BatchStatus {
+  active
+  inactive
+  completed
+}
+
+enum FacultyStatus {
+  active
+  inactive
+}
+
+enum EnrollmentStatus {
+  active
+  dropped
+  completed
+}
+
+enum AttendanceStatus {
+  present
+  absent
+  late
+  excused
+  holiday
+}
+
+enum SessionType {
+  regular
+  makeup
+  special
+  exam
+  holiday
+}
+
+enum DepartmentStatus {
+  active
+  inactive
+  archived
+}
+
+// ==================== PERMISSION & ROLE ====================
 model Permission {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
   description String?
   module      String
-  action      String   // CREATE, READ, UPDATE, DELETE
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  action      String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   roles RolePermission[]
 
   @@map("permissions")
 }
 
-// Role Model
 model Role {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
   description String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   permissions RolePermission[]
   users       User[]
@@ -47,7 +102,6 @@ model Role {
   @@map("roles")
 }
 
-// Role-Permission Junction Table
 model RolePermission {
   id           Int        @id @default(autoincrement())
   roleId       Int
@@ -61,122 +115,363 @@ model RolePermission {
   @@map("role_permissions")
 }
 
-// User Model
+// ==================== USER ====================
 model User {
-  id            Int        @id @default(autoincrement())
-  email         String     @unique
-  password      String
-  firstName     String
-  lastName      String
-  phone         String?
-  avatar        String?
- 
-  status        UserStatus @default(ACTIVE)
-  emailVerified DateTime?
-  lastLogin     DateTime?
-  mustChangePassword Boolean @default(false)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id                  Int              @id @default(autoincrement())
+  email               String           @unique
+  password            String
+  firstName           String
+  lastName            String
+  phone               String?
+  avatar              String?
+  status              UserStatus       @default(ACTIVE)
+  emailVerified       DateTime?
+  lastLogin           DateTime?
+  mustChangePassword  Boolean          @default(false)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
-  roleId Int
-  role   Role @relation(fields: [roleId], references: [id])
+  roleId              Int
+  role                Role             @relation(fields: [roleId], references: [id])
 
-  // Many-to-Many relationship with departments (for faculty/staff)
-  userDepartments UserDepartment[]
+  userDepartments     UserDepartment[]
+  student             Student?         @relation("UserStudent")
+  faculty             Faculty?         @relation("UserFaculty")
 
-  // Relations based on user level
-  studentProfile    StudentProfile?
-  facultyProfile    FacultyProfile?
-
-  activityLogs ActivityLog[]
+  activityLogs        ActivityLog[]
+  headedDepartments   Department[]     @relation("DepartmentHead")
 
   @@map("users")
 }
 
-// User-Department Junction Table (Many-to-Many for Faculty/Staff)
 model UserDepartment {
   id           Int        @id @default(autoincrement())
   userId       Int
   departmentId Int
-  isPrimary    Boolean    @default(false)  // To mark primary department
+  isPrimary    Boolean    @default(false)
   assignedAt   DateTime   @default(now())
-  assignedBy   Int?       // User ID who made the assignment
+  assignedBy   Int?
 
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  faculties    Faculty[]  @relation("FacultyUserDepartment")
 
   @@unique([userId, departmentId])
   @@map("user_departments")
 }
 
-// Student Profile
-model StudentProfile {
-  id            Int      @id @default(autoincrement())
-  userId        Int      @unique
-  rollNumber    String   @unique
-  enrollmentNo  String?  @unique
-  dateOfBirth   DateTime
-  gender        String
-  address       String?
-  bloodGroup    String?
-  guardianName  String?
-  guardianPhone String?
-  admissionDate DateTime
-  currentSemester Int?
-  departmentId  Int
-  program       String?
-  
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  department Department @relation(fields: [departmentId], references: [id])
+// ==================== STUDENT ====================
+model Student {
+  id               Int        @id @default(autoincrement())
+  name             String
+  email            String?    @unique
+  phone            String?    @unique
+  address          String?
+  enrollmentNo     String?    @unique
+  rollNo           String?
+  dateOfBirth      DateTime?
+  gender           String?
+  profilePicture   String?
+  status           Status     @default(active)
+  inactiveDate     DateTime?
+  examRollNumber   String?    @unique
+  enrollmentDate   DateTime?  @default(now())
+  bloodGroup       String?
+  guardianName     String?
+  guardianContact  String?
+  guardianEmail    String?
+  emergencyContact String?
 
-  @@map("student_profiles")
+  userId           Int?       @unique
+  user             User?      @relation("UserStudent", fields: [userId], references: [id])
+
+  batchId          Int?
+  batch            Batch?     @relation(fields: [batchId], references: [id])
+
+  departmentId     Int?
+  department       Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  attendances      Attendance[]
+  attendanceSummaries AttendanceSummary[]
+  classroomEnrollments ClassroomEnrollment[]
+
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@index([batchId])
+  @@index([enrollmentNo])
 }
 
-// Faculty Profile
-model FacultyProfile {
-  id            Int      @id @default(autoincrement())
-  userId        Int      @unique
-  employeeId    String   @unique
-  designation   String
-  specialization String?
-  dateOfJoining DateTime
-  qualification String?
-  experience    Int?
-  bio           String?
+// ==================== FACULTY ====================
+model Faculty {
+  id              Int              @id @default(autoincrement())
+  name            String
+  phone           String?          @unique
+  email           String?          @unique
+  address         String?
+  joinedDate      DateTime         @default(now())
+  cv              String?
+  designation     String?
+  qualification   String?
+  specialization  String?
+  profilePicture  String?
+  status          FacultyStatus    @default(active)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int?             @unique
+  user            User?            @relation("UserFaculty", fields: [userId], references: [id])
 
-  @@map("faculty_profiles")
+  userDepartmentId Int?
+  userDepartment   UserDepartment? @relation("FacultyUserDepartment", fields: [userDepartmentId], references: [id])
+
+  classrooms      Classroom[]
+  classSessions   ClassSession[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([userDepartmentId])
 }
-// Activity Log
+
+// ==================== DEPARTMENT ====================
+model Department {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  code            String?          @unique
+  description     String?
+  status          DepartmentStatus @default(active)
+  headId          Int?
+  head            User?            @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  userDepartments UserDepartment[]
+  students        Student[]
+  courseLists     CourseList[]
+  courses         Course[]
+  batches         Batch[]
+  classrooms      Classroom[]
+
+  @@map("departments")
+}
+
+// ==================== COURSE ====================
+model Course {
+  id              Int              @id @default(autoincrement())
+  name            String
+  code            String           @unique
+  credits         Int?
+  description     String?
+  lecture         Int?
+  tutorial        Int?
+  practical       Int?
+  noncredit       Boolean          @default(false)
+  courseType      CourseType       @default(core)
+  semester        Semester         @default(semester1)
+  syllabus        String?
+
+  departmentId    Int?
+  department      Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  courseLists     CourseList[]
+  classrooms      Classroom[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([departmentId])
+  @@index([code])
+}
+
+model CourseList {
+  id              Int              @id @default(autoincrement())
+
+  departmentId    Int
+  department      Department       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  batchId         Int
+  batch           Batch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  courseId        Int
+  course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  semester        Semester         @default(semester1)
+  isActive        Boolean          @default(true)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([batchId, courseId, semester])
+  @@index([batchId])
+  @@index([courseId])
+  @@index([semester])
+}
+
+// ==================== BATCH ====================
+model Batch {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  startDate   DateTime
+  endDate     DateTime
+  status      BatchStatus  @default(active)
+
+  departments Department[]
+  courseLists CourseList[]
+  students    Student[]
+  classrooms  Classroom[]
+  batchPreference BatchPreference?
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([name])
+}
+
+// ==================== CLASSROOM ====================
+model Classroom {
+  id              Int              @id @default(autoincrement())
+  name            String
+  code            String?
+  capacity        Int?
+  status          String           @default("inactive")
+  semester        String?          @default("semester1")
+
+  batchId         Int
+  batch           Batch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  departmentId    Int?
+  department      Department?      @relation(fields: [departmentId], references: [id])
+
+  courseId        Int?
+  course          Course?          @relation(fields: [courseId], references: [id])
+
+  facultyId       Int?
+  faculty         Faculty?         @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+
+  attendances     Attendance[]
+  attendanceSummaries AttendanceSummary[]
+  classSessions   ClassSession[]
+  enrollments     ClassroomEnrollment[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([batchId])
+  @@index([facultyId])
+  @@index([courseId])
+  @@index([departmentId])
+}
+
+model ClassroomEnrollment {
+  id              Int              @id @default(autoincrement())
+  studentId       Int
+  classroomId     Int
+  enrolledAt      DateTime         @default(now())
+  status          EnrollmentStatus @default(active)
+
+  student         Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classroom       Classroom        @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classroomId])
+  @@index([classroomId])
+  @@index([studentId])
+}
+
+// ==================== ATTENDANCE ====================
+model Attendance {
+  id              Int              @id @default(autoincrement())
+  status          AttendanceStatus @default(present)
+  checkInTime     DateTime?
+  checkOutTime    DateTime?
+  remarks         String?
+  markedBy        Int?
+  markedAt        DateTime         @default(now())
+
+  studentId       Int
+  student         Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  classSessionId  Int
+  classSession    ClassSession     @relation(fields: [classSessionId], references: [id], onDelete: Cascade)
+
+  classroomId     Int
+  classroom       Classroom        @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classSessionId])
+  @@index([studentId])
+  @@index([classSessionId])
+  @@index([classroomId])
+  @@index([status])
+}
+
+model AttendanceSummary {
+  id              Int              @id @default(autoincrement())
+  studentId       Int
+  classroomId     Int
+  totalSessions   Int              @default(0)
+  presentCount    Int              @default(0)
+  absentCount     Int              @default(0)
+  lateCount       Int              @default(0)
+  excusedCount    Int              @default(0)
+  percentage      Float            @default(0)
+  lastUpdated     DateTime         @default(now())
+
+  student         Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classroom       Classroom        @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, classroomId])
+  @@index([studentId])
+  @@index([classroomId])
+  @@index([percentage])
+}
+
+model ClassSession {
+  id              Int              @id @default(autoincrement())
+  title           String
+  date            DateTime         @default(now())
+  startTime       DateTime?
+  endTime         DateTime?
+  syllabusCovered String?
+  notes           String?
+  materialUrl     String?
+  sessionType     SessionType      @default(regular)
+
+  classroomId     Int
+  classroom       Classroom        @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  facultyId       Int?
+  faculty         Faculty?         @relation(fields: [facultyId], references: [id], onDelete: SetNull)
+
+  attendances     Attendance[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([classroomId, date, startTime])
+  @@index([date])
+  @@index([classroomId, date])
+  @@index([facultyId])
+}
+
+// ==================== ACTIVITY LOG ====================
 model ActivityLog {
   id        Int      @id @default(autoincrement())
   userId    Int
   action    String
   module    String
-  details   Json?     // Changed from String? with @db.Json
+  details   Json?
   ipAddress String?
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("activity_logs")
 }
 
-// Department Model
-model Department {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  code      String?  @unique  // Department code (e.g., CS, EE, ME)
-  headId    Int?     // Department head (faculty user ID)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Faculty/Staff who belong to this department (many-to-many)
-  userDepartments UserDepartment[]
-  
-  // Students who belong to this department (one-to-many)
-  studentProfiles StudentProfile[]
-
-  @@map("departments")
+model BatchPreference {
+  id              Int      @id @default(autoincrement())
+  batchId         Int      @unique
+  batch           Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  selectedSemester String?  @default("semester1")
+  statusFilter    String?  @default("all")
+  classroomStatusFilter   String?
+  updatedAt       DateTime @updatedAt
 }
