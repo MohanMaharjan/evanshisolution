@@ -1,10 +1,11 @@
-// app/classrooms/page.jsx - Classroom Management (REST API) - Complete Rewrite
 'use client';
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import * as Icons from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useRouter } from 'next/navigation';
+import CalendarModal from '@/components/classroom/CalendarModal';
+import  ExaminationConfig  from '@/components/classroom/ExaminationConfig';
 
 const API_URL = '/api';
 
@@ -39,7 +40,14 @@ function Toast({ toast, onClose }) {
   const IconComponent = Icons[config.icon] || Icons.Info;
   return (
     <div className="bg-white rounded-xl border shadow-2xl overflow-hidden animate-slide-in-left" style={{ borderColor: config.border }}>
-      <div className="flex items-start gap-3 p-4" style={{ backgroundColor: config.bg }}><div className="flex-shrink-0 mt-0.5"><IconComponent size={20} style={{ color: config.color }} /></div><div className="flex-1 min-w-0">{toast.title && <p className="text-sm font-semibold text-slate-800">{toast.title}</p>}<p className="text-xs text-slate-600 mt-0.5">{toast.message}</p></div><button onClick={onClose} className="flex-shrink-0 p-1 rounded-lg hover:bg-black/5"><Icons.X size={16} className="text-slate-400" /></button></div>
+      <div className="flex items-start gap-3 p-4" style={{ backgroundColor: config.bg }}>
+        <div className="flex-shrink-0 mt-0.5"><IconComponent size={20} style={{ color: config.color }} /></div>
+        <div className="flex-1 min-w-0">
+          {toast.title && <p className="text-sm font-semibold text-slate-800">{toast.title}</p>}
+          <p className="text-xs text-slate-600 mt-0.5">{toast.message}</p>
+        </div>
+        <button onClick={onClose} className="flex-shrink-0 p-1 rounded-lg hover:bg-black/5"><Icons.X size={16} className="text-slate-400" /></button>
+      </div>
       <div className="h-1 bg-slate-200/50"><div className="h-full animate-toast-timer" style={{ backgroundColor: config.color }} /></div>
     </div>
   );
@@ -47,13 +55,72 @@ function Toast({ toast, onClose }) {
 
 function ConfirmDialog({ isOpen, title, message, confirmLabel, confirmClass, onConfirm, onCancel }) {
   if (!isOpen) return null;
-  return (<div className="fixed inset-0 z-[300] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} /><div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 p-6 animate-scale-in"><div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center"><Icons.AlertTriangle size={20} className="text-amber-500" /></div><div><h3 className="text-lg font-bold text-slate-800">{title}</h3><p className="text-sm text-slate-500">{message}</p></div></div><div className="flex gap-3 justify-end"><button onClick={onCancel} className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">Cancel</button><button onClick={onConfirm} className={`px-4 py-2 text-white rounded-xl text-sm font-medium ${confirmClass || 'bg-slate-600 hover:bg-slate-700'}`}>{confirmLabel || 'Confirm'}</button></div></div></div>);
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 p-6 animate-scale-in">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center"><Icons.AlertTriangle size={20} className="text-amber-500" /></div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+            <p className="text-sm text-slate-500">{message}</p>
+          </div>
+        </div>
+        <div className="flex gap-3 justify-end">
+          <button onClick={onCancel} className="px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
+          <button onClick={onConfirm} className={`px-4 py-2 text-white rounded-xl text-sm font-medium ${confirmClass || 'bg-slate-600 hover:bg-slate-700'}`}>{confirmLabel || 'Confirm'}</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function AccessDenied() { return (<div className="flex items-center justify-center min-h-[60vh]"><div className="text-center max-w-md p-8 bg-red-50 rounded-xl border border-red-200"><Icons.Lock className="w-12 h-12 mx-auto mb-4 text-red-400" /><h2 className="text-xl font-bold mb-2 text-red-600">Access Denied</h2><p className="text-red-500">You don't have permission to view classrooms.</p></div></div>); }
-function LoadingSkeleton() { return (<div className="space-y-4">{[1,2,3].map((i) => (<div key={i} className="animate-pulse bg-white rounded-xl p-5 border border-slate-200"><div className="flex items-center gap-4"><div className="w-10 h-10 rounded-lg bg-slate-200" /><div className="flex-1 space-y-2"><div className="h-4 rounded w-1/3 bg-slate-200" /><div className="h-3 rounded w-1/2 bg-slate-200" /></div></div></div>))}</div>); }
-function EmptyState({ hasFilters }) { return (<div className="text-center py-16 text-slate-400"><Icons.BookOpen size={48} className="mx-auto mb-4 text-slate-300" /><p className="text-lg font-medium text-slate-500">{hasFilters ? 'No batches match your filters' : 'No batches found'}</p>{hasFilters && <p className="text-sm mt-1">Try adjusting your search criteria</p>}</div>); }
-function getAttendanceColor(p) { if (p >= 75) return '#16a34a'; if (p >= 60) return '#f59e0b'; if (p >= 40) return '#f97316'; return '#dc2626'; }
+function AccessDenied() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="text-center max-w-md p-8 bg-red-50 rounded-xl border border-red-200">
+        <Icons.Lock className="w-12 h-12 mx-auto mb-4 text-red-400" />
+        <h2 className="text-xl font-bold mb-2 text-red-600">Access Denied</h2>
+        <p className="text-red-500">You don't have permission to view classrooms.</p>
+      </div>
+    </div>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="animate-pulse bg-white rounded-xl p-5 border border-slate-200">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-slate-200" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 rounded w-1/3 bg-slate-200" />
+              <div className="h-3 rounded w-1/2 bg-slate-200" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ hasFilters }) {
+  return (
+    <div className="text-center py-16 text-slate-400">
+      <Icons.BookOpen size={48} className="mx-auto mb-4 text-slate-300" />
+      <p className="text-lg font-medium text-slate-500">{hasFilters ? 'No batches match your filters' : 'No batches found'}</p>
+      {hasFilters && <p className="text-sm mt-1">Try adjusting your search criteria</p>}
+    </div>
+  );
+}
+
+function getAttendanceColor(p) {
+  if (p >= 75) return '#16a34a';
+  if (p >= 60) return '#f59e0b';
+  if (p >= 40) return '#f97316';
+  return '#dc2626';
+}
 
 export default function ClassroomPage() {
   const router = useRouter();
@@ -102,30 +169,79 @@ export default function ClassroomPage() {
   const [savingAllRemarks, setSavingAllRemarks] = useState(false);
   const [absenteesStudentFilter, setAbsenteesStudentFilter] = useState('all');
 
-  const savePrefs = useCallback((key, value) => { try { const e = JSON.parse(localStorage.getItem('classroom_preferences') || '{}'); e[key] = value; localStorage.setItem('classroom_preferences', JSON.stringify(e)); } catch (e) {} }, []);
-  const loadPrefs = useCallback(() => { try { const s = localStorage.getItem('classroom_preferences'); if (s) { const p = JSON.parse(s); if (p.selectedSemester && Object.keys(p.selectedSemester).length > 0) setSelectedSemester(p.selectedSemester); if (p.classroomStatusFilter && Object.keys(p.classroomStatusFilter).length > 0) setClassroomStatusFilter(p.classroomStatusFilter); if (p.batchStatusFilter) setBatchStatusFilter(p.batchStatusFilter); if (p.departmentFilter) setDepartmentFilter(p.departmentFilter); if (p.viewMode) setViewMode(p.viewMode); } } catch (e) {} setPrefsLoaded(true); }, []);
+  // Calendar States
+  const [showGlobalCalendar, setShowGlobalCalendar] = useState(false);
+  const [showBatchCalendar, setShowBatchCalendar] = useState(null);
+  const [showExamConfig, setShowExamConfig] = useState(null);
+  const [globalEvents, setGlobalEvents] = useState([]);
+  const [globalHolidays, setGlobalHolidays] = useState([]);
+  const [batchEvents, setBatchEvents] = useState({});
+  const [batchHolidays, setBatchHolidays] = useState({});
+  const [batchExaminations, setBatchExaminations] = useState({});
+  const [loadingCalendar, setLoadingCalendar] = useState(false);
+
+  const savePrefs = useCallback((key, value) => {
+    try {
+      const e = JSON.parse(localStorage.getItem('classroom_preferences') || '{}');
+      e[key] = value;
+      localStorage.setItem('classroom_preferences', JSON.stringify(e));
+    } catch (e) {}
+  }, []);
+
+  const loadPrefs = useCallback(() => {
+    try {
+      const s = localStorage.getItem('classroom_preferences');
+      if (s) {
+        const p = JSON.parse(s);
+        if (p.selectedSemester && Object.keys(p.selectedSemester).length > 0) setSelectedSemester(p.selectedSemester);
+        if (p.classroomStatusFilter && Object.keys(p.classroomStatusFilter).length > 0) setClassroomStatusFilter(p.classroomStatusFilter);
+        if (p.batchStatusFilter) setBatchStatusFilter(p.batchStatusFilter);
+        if (p.departmentFilter) setDepartmentFilter(p.departmentFilter);
+        if (p.viewMode) setViewMode(p.viewMode);
+      }
+    } catch (e) {}
+    setPrefsLoaded(true);
+  }, []);
+
   useEffect(() => { loadPrefs(); }, [loadPrefs]);
 
-  const addToast = useCallback((type, title, message) => { const id = Date.now() + Math.random(); setToasts((prev) => [...prev, { id, type, title, message }]); setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000); }, []);
+  const addToast = useCallback((type, title, message) => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, type, title, message }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+  }, []);
+
   const removeToast = useCallback((id) => setToasts((prev) => prev.filter((t) => t.id !== id)), []);
-  const showConfirm = useCallback((title, message, onConfirm, confirmLabel, confirmClass) => { setConfirmDialog({ isOpen: true, title, message, onConfirm, confirmLabel: confirmLabel || 'Confirm', confirmClass: confirmClass || 'bg-slate-600 hover:bg-slate-700' }); }, []);
+
+  const showConfirm = useCallback((title, message, onConfirm, confirmLabel, confirmClass) => {
+    setConfirmDialog({ isOpen: true, title, message, onConfirm, confirmLabel: confirmLabel || 'Confirm', confirmClass: confirmClass || 'bg-slate-600 hover:bg-slate-700' });
+  }, []);
 
   const api = useCallback(async (endpoint, options = {}) => {
     const fetchOptions = { headers: { 'Content-Type': 'application/json' }, credentials: 'include', ...options };
     if (options.body) fetchOptions.body = options.body;
     const res = await fetch(API_URL + endpoint, fetchOptions);
-    const text = await res.text(); let data;
+    const text = await res.text();
+    let data;
     try { data = JSON.parse(text); } catch { data = { message: text || 'OK' }; }
     if (!res.ok) throw new Error(data?.error || data?.message || 'API Error');
     return data;
   }, []);
 
-  const formatDate = (d) => { if (!d) return 'N/A'; try { return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); } catch { return 'N/A'; } };
+  const formatDate = (d) => {
+    if (!d) return 'N/A';
+    try { return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); } catch { return 'N/A'; }
+  };
+
   const getStatusStyle = (s) => STATUS_STYLES[s] || STATUS_STYLES.inactive;
 
   const getClassroomsForBatch = useCallback((bid) => allClassrooms.filter((c) => c.batchId === bid), [allClassrooms]);
   const getClassroomsForSemester = useCallback((bid, sem) => getClassroomsForBatch(bid).filter((c) => (c.semester || 'semester1') === sem), [getClassroomsForBatch]);
-  const isBatchFullyCreated = useCallback((bid) => { const c = getClassroomsForBatch(bid); if (!c.length) return false; return ALL_SEMESTER_KEYS.every((s) => new Set(c.map((x) => x.semester)).has(s)); }, [getClassroomsForBatch]);
+  const isBatchFullyCreated = useCallback((bid) => {
+    const c = getClassroomsForBatch(bid);
+    if (!c.length) return false;
+    return ALL_SEMESTER_KEYS.every((s) => new Set(c.map((x) => x.semester)).has(s));
+  }, [getClassroomsForBatch]);
 
   const totalActiveClassrooms = useMemo(() => allClassrooms.filter((c) => c.status === 'active').length, [allClassrooms]);
   const totalInactiveClassrooms = useMemo(() => allClassrooms.filter((c) => c.status !== 'active').length, [allClassrooms]);
@@ -134,64 +250,434 @@ export default function ClassroomPage() {
   const getBatchActiveCount = useCallback((bid) => getClassroomsForBatch(bid).filter((c) => c.status === 'active').length, [getClassroomsForBatch]);
   const getBatchTotalCount = useCallback((bid) => getClassroomsForBatch(bid).length, [getClassroomsForBatch]);
   const getBatchInactiveCount = useCallback((bid) => getClassroomsForBatch(bid).filter((c) => c.status !== 'active').length, [getClassroomsForBatch]);
-  const getSemesterCounts = useCallback((bid, sem) => { const c = getClassroomsForSemester(bid, sem); return { total: c.length, active: c.filter((x) => x.status === 'active').length, inactive: c.filter((x) => x.status !== 'active').length }; }, [getClassroomsForSemester]);
 
-  const filteredBatches = useMemo(() => { let r = batches; if (departmentFilter !== 'all') r = r.filter((b) => b.departments?.some((d) => d.id === parseInt(departmentFilter))); return r; }, [batches, departmentFilter]);
+  const getSemesterCounts = useCallback((bid, sem) => {
+    const c = getClassroomsForSemester(bid, sem);
+    return { total: c.length, active: c.filter((x) => x.status === 'active').length, inactive: c.filter((x) => x.status !== 'active').length };
+  }, [getClassroomsForSemester]);
+
+  const filteredBatches = useMemo(() => {
+    let r = batches;
+    if (departmentFilter !== 'all') r = r.filter((b) => b.departments?.some((d) => d.id === parseInt(departmentFilter)));
+    return r;
+  }, [batches, departmentFilter]);
+
   const activeBatches = useMemo(() => filteredBatches.filter((b) => b.status === 'active').length, [filteredBatches]);
   const inactiveBatches = useMemo(() => filteredBatches.filter((b) => b.status !== 'active').length, [filteredBatches]);
-  const filteredFaculties = useMemo(() => { if (!facultySearchQuery.trim()) return allFaculties; const q = facultySearchQuery.toLowerCase(); return allFaculties.filter((f) => f.name?.toLowerCase().includes(q) || f.email?.toLowerCase().includes(q) || f.designation?.toLowerCase().includes(q)); }, [allFaculties, facultySearchQuery]);
-  const getFilteredClassrooms = useCallback((bid, sem) => { const c = getClassroomsForSemester(bid, sem); const f = classroomStatusFilter[bid] || 'all'; return f === 'all' ? c : c.filter((x) => x.status === f); }, [getClassroomsForSemester, classroomStatusFilter]);
 
-  const fetchAllData = useCallback(async () => { setLoading(true); try { const params = new URLSearchParams({ limit: '500' }); if (batchStatusFilter !== 'all') params.append('status', batchStatusFilter); if (searchTerm) params.append('search', searchTerm); const [cr, ba, de, fa] = await Promise.all([api('/classrooms?include=batch,course,department,faculty'), api('/batches?' + params.toString()), api('/departments'), api('/faculties')]); setAllClassrooms(cr.classrooms || []); const batchesWithCounts = (ba.batches || []).map((b) => ({ ...b, studentCount: b.studentCount ?? b._count?.students ?? 0 })); setBatches(batchesWithCounts); setAllDepartments(de.departments || []); setAllFaculties(fa.faculties || []); } catch (e) { addToast('error', 'Error', e.message); } finally { setLoading(false); } }, [api, searchTerm, batchStatusFilter, addToast]);
+  const filteredFaculties = useMemo(() => {
+    if (!facultySearchQuery.trim()) return allFaculties;
+    const q = facultySearchQuery.toLowerCase();
+    return allFaculties.filter((f) => f.name?.toLowerCase().includes(q) || f.email?.toLowerCase().includes(q) || f.designation?.toLowerCase().includes(q));
+  }, [allFaculties, facultySearchQuery]);
+
+  const getFilteredClassrooms = useCallback((bid, sem) => {
+    const c = getClassroomsForSemester(bid, sem);
+    const f = classroomStatusFilter[bid] || 'all';
+    return f === 'all' ? c : c.filter((x) => x.status === f);
+  }, [getClassroomsForSemester, classroomStatusFilter]);
+
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: '500' });
+      if (batchStatusFilter !== 'all') params.append('status', batchStatusFilter);
+      if (searchTerm) params.append('search', searchTerm);
+      const [cr, ba, de, fa] = await Promise.all([
+        api('/classrooms?include=batch,course,department,faculty'),
+        api('/batches?' + params.toString()),
+        api('/departments'),
+        api('/faculties')
+      ]);
+      setAllClassrooms(cr.classrooms || []);
+      const batchesWithCounts = (ba.batches || []).map((b) => ({ ...b, studentCount: b.studentCount ?? b._count?.students ?? 0 }));
+      setBatches(batchesWithCounts);
+      setAllDepartments(de.departments || []);
+      setAllFaculties(fa.faculties || []);
+    } catch (e) {
+      addToast('error', 'Error', e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [api, searchTerm, batchStatusFilter, addToast]);
+
   useEffect(() => { if (prefsLoaded && hasRead) fetchAllData(); }, [prefsLoaded, hasRead, fetchAllData]);
-  useEffect(() => { const h = (e) => { if (facultyDropdownRef.current && !facultyDropdownRef.current.contains(e.target)) { setShowFacultyDropdown(false); setFacultySearchQuery(''); } }; document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h); }, []);
 
-  const handleSelectSemester = useCallback((bid, sem) => { setSelectedSemester((prev) => { const u = { ...prev, [bid]: sem }; savePrefs('selectedSemester', u); return u; }); }, [savePrefs]);
-  const handleClassroomStatusFilter = useCallback((bid, f) => { setClassroomStatusFilter((prev) => { const u = { ...prev, [bid]: f }; savePrefs('classroomStatusFilter', u); return u; }); }, [savePrefs]);
-  const handleBatchStatusFilter = useCallback((v) => { setBatchStatusFilter(v); savePrefs('batchStatusFilter', v); }, [savePrefs]);
-  const handleDepartmentFilter = useCallback((v) => { setDepartmentFilter(v); savePrefs('departmentFilter', v); }, [savePrefs]);
-  const handleViewMode = useCallback((v) => { setViewMode(v); savePrefs('viewMode', v); }, [savePrefs]);
-  const toggleBatch = useCallback((bid) => { setExpandedBatch((prev) => prev === bid ? null : bid); }, []);
+  useEffect(() => {
+    const h = (e) => {
+      if (facultyDropdownRef.current && !facultyDropdownRef.current.contains(e.target)) {
+        setShowFacultyDropdown(false);
+        setFacultySearchQuery('');
+      }
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  // ==================== CALENDAR FUNCTIONS ====================
+  const fetchGlobalCalendar = useCallback(async () => {
+    setLoadingCalendar(true);
+    try {
+      const data = await api('/calendar-events?type=global');
+      setGlobalEvents(data.events || []);
+      setGlobalHolidays(data.holidays || []);
+    } catch (err) {
+      console.error('Failed to fetch global calendar:', err);
+    } finally {
+      setLoadingCalendar(false);
+    }
+  }, [api]);
+
+  const fetchBatchCalendar = useCallback(async (batchId) => {
+    setLoadingCalendar(true);
+    try {
+      const data = await api(`/calendar-events?batchId=${batchId}`);
+      setBatchEvents(prev => ({ ...prev, [batchId]: data.events || [] }));
+      setBatchHolidays(prev => ({ ...prev, [batchId]: data.holidays || [] }));
+      setBatchExaminations(prev => ({ ...prev, [batchId]: data.examinations || [] }));
+    } catch (err) {
+      console.error('Failed to fetch batch calendar:', err);
+    } finally {
+      setLoadingCalendar(false);
+    }
+  }, [api]);
+
+  const openGlobalCalendar = useCallback(() => {
+    setShowGlobalCalendar(true);
+    fetchGlobalCalendar();
+  }, [fetchGlobalCalendar]);
+
+  const openBatchCalendar = useCallback((batchId) => {
+    setShowBatchCalendar(batchId);
+    fetchBatchCalendar(batchId);
+  }, [fetchBatchCalendar]);
+
+  // Update holidays configuration
+  const handleUpdateHolidays = useCallback(async (holidayEvents, calendarType) => {
+    if (!holidayEvents || holidayEvents.length === 0) {
+      addToast('warning', 'No Holidays', 'No holiday configuration to save');
+      return;
+    }
+
+    try {
+      // First, delete all existing holidays for this calendar type
+      const existingHolidays = calendarType === 'global' 
+        ? globalHolidays 
+        : (batchHolidays[showBatchCalendar] || []);
+      
+      // Delete existing recurring holidays
+      for (const holiday of existingHolidays) {
+        if (holiday.id && (holiday.recurring || holiday.type === 'holiday')) {
+          try {
+            await api(`/calendar-events/${holiday.id}`, { method: 'DELETE' });
+          } catch (err) {
+            console.error('Failed to delete existing holiday:', err);
+          }
+        }
+      }
+      
+      // Add new holiday events
+      const addedHolidays = [];
+      for (const holiday of holidayEvents) {
+        // Ensure required fields
+        const payload = {
+          title: holiday.title || 'Holiday',
+          date: holiday.date || new Date().toISOString().split('T')[0],
+          time: '00:00',
+          type: 'holiday',
+          description: holiday.description || '',
+          recurring: holiday.recurring || false,
+          recurringDays: holiday.recurringDays || [],
+        };
+
+        // Add batch-specific fields
+        if (calendarType === 'batch') {
+          payload.batchId = showBatchCalendar;
+        }
+
+        try {
+          const response = await api('/calendar-events', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+          
+          const addedEvent = response.event || response;
+          if (addedEvent) {
+            addedHolidays.push(addedEvent);
+          }
+        } catch (err) {
+          console.error('Failed to add holiday:', err);
+        }
+      }
+      
+      // Refresh calendar data
+      if (calendarType === 'global') {
+        await fetchGlobalCalendar();
+        
+        // Sync global recurring holidays to all batches
+        const recurringHolidays = holidayEvents.filter(h => h.recurring);
+        if (recurringHolidays.length > 0) {
+          for (const batch of batches) {
+            for (const holiday of recurringHolidays) {
+              try {
+                await api('/calendar-events', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    title: holiday.title || 'Synced Holiday',
+                    date: new Date().toISOString().split('T')[0],
+                    time: '00:00',
+                    type: 'holiday',
+                    description: `Synced from global: ${holiday.title}`,
+                    recurring: true,
+                    recurringDays: holiday.recurringDays || [],
+                    batchId: batch.id,
+                  }),
+                });
+              } catch (err) {
+                console.error('Failed to sync holiday to batch:', err);
+              }
+            }
+          }
+        }
+      } else {
+        await fetchBatchCalendar(showBatchCalendar);
+      }
+      
+      if (addedHolidays.length > 0) {
+        addToast('success', 'Holidays Updated', `${addedHolidays.length} holiday(s) configured successfully`);
+      } else {
+        addToast('warning', 'No Changes', 'No holidays were added');
+      }
+    } catch (err) {
+      addToast('error', 'Error', `Failed to update holidays: ${err.message}`);
+    }
+  }, [api, globalHolidays, batchHolidays, showBatchCalendar, batches, fetchGlobalCalendar, fetchBatchCalendar, addToast]);
+
+  const handleAddGlobalEvent = useCallback(async (event) => {
+    try {
+      await api('/calendar-events', {
+        method: 'POST',
+        body: JSON.stringify({ ...event, type: 'global' }),
+      });
+      
+      // If it's a recurring holiday, sync to all batches
+      if (event.type === 'holiday' && event.recurring) {
+        for (const batch of batches) {
+          await api('/calendar-events', {
+            method: 'POST',
+            body: JSON.stringify({ ...event, type: 'batch', batchId: batch.id, isSynced: true }),
+          });
+        }
+      }
+      
+      await fetchGlobalCalendar();
+      addToast('success', 'Event Added', 'Global event has been added');
+    } catch (err) {
+      addToast('error', 'Error', err.message);
+    }
+  }, [api, batches, fetchGlobalCalendar, addToast]);
+
+  const handleAddBatchEvent = useCallback(async (event) => {
+    try {
+      await api('/calendar-events', {
+        method: 'POST',
+        body: JSON.stringify({ ...event, type: 'batch', batchId: showBatchCalendar }),
+      });
+      
+      await fetchBatchCalendar(showBatchCalendar);
+      addToast('success', 'Event Added', 'Batch event has been added');
+    } catch (err) {
+      addToast('error', 'Error', err.message);
+    }
+  }, [api, showBatchCalendar, fetchBatchCalendar, addToast]);
+
+  const handleDeleteCalendarEvent = useCallback(async (eventId) => {
+    try {
+      await api(`/calendar-events/${eventId}`, { method: 'DELETE' });
+      if (showBatchCalendar) {
+        await fetchBatchCalendar(showBatchCalendar);
+      } else {
+        await fetchGlobalCalendar();
+      }
+      addToast('success', 'Deleted', 'Event has been deleted');
+    } catch (err) {
+      addToast('error', 'Error', err.message);
+    }
+  }, [api, showBatchCalendar, fetchBatchCalendar, fetchGlobalCalendar, addToast]);
+
+  const handleSaveExaminations = useCallback(async (exams) => {
+    try {
+      for (const exam of exams) {
+        await api('/calendar-events', {
+          method: 'POST',
+          body: JSON.stringify({ ...exam, type: 'examination', batchId: showExamConfig }),
+        });
+      }
+      
+      setBatchExaminations(prev => ({ ...prev, [showExamConfig]: exams }));
+      addToast('success', 'Examinations Configured', `${exams.length} examinations have been scheduled`);
+    } catch (err) {
+      addToast('error', 'Error', err.message);
+    }
+  }, [api, showExamConfig, addToast]);
 
   // ==================== ATTENDANCE REPORT ====================
   const computeDetailedAttendanceSummary = useCallback(async (bid, semester) => {
     const batchClassrooms = getClassroomsForSemester(bid, semester || 'semester1');
     const activeClassrooms = batchClassrooms.filter((c) => c.status === 'active');
-    const classroomSummaries = []; const studentMap = {}; const absenteesByDateMap = {};
+    const classroomSummaries = [];
+    const studentMap = {};
+    const absenteesByDateMap = {};
     let batchStudents = [];
-    try { const data = await api('/batches/' + bid + '/students?status=active'); batchStudents = data.students || []; batchStudents.forEach((s) => { studentMap[s.id] = { studentId: s.id, studentName: s.name || 'Unknown', rollNumber: s.rollNo || '-', classrooms: {} }; }); } catch (err) { console.error('Failed to fetch batch students:', err); }
+    
+    try {
+      const data = await api('/batches/' + bid + '/students?status=active');
+      batchStudents = data.students || [];
+      batchStudents.forEach((s) => {
+        studentMap[s.id] = { studentId: s.id, studentName: s.name || 'Unknown', rollNumber: s.rollNo || '-', classrooms: {} };
+      });
+    } catch (err) {
+      console.error('Failed to fetch batch students:', err);
+    }
+    
     for (const classroom of activeClassrooms) {
       try {
-        const data = await api('/class-sessions?classroomId=' + classroom.id); const sessions = data.classSessions || []; const totalSessions = sessions.length; let presentCount = 0, absentCount = 0;
-        batchStudents.forEach((s) => { if (studentMap[s.id]) studentMap[s.id].classrooms[classroom.id] = { classroomId: classroom.id, classroomName: classroom.name, courseName: classroom.course?.name || classroom.name, present: 0, total: totalSessions, percentage: 0 }; });
+        const data = await api('/class-sessions?classroomId=' + classroom.id);
+        const sessions = data.classSessions || [];
+        const totalSessions = sessions.length;
+        let presentCount = 0, absentCount = 0;
+        
+        batchStudents.forEach((s) => {
+          if (studentMap[s.id]) {
+            studentMap[s.id].classrooms[classroom.id] = {
+              classroomId: classroom.id, classroomName: classroom.name,
+              courseName: classroom.course?.name || classroom.name,
+              present: 0, total: totalSessions, percentage: 0
+            };
+          }
+        });
+        
         sessions.forEach((session) => {
           const isoDate = new Date(session.date).toISOString().split('T')[0];
-          if (!absenteesByDateMap[isoDate]) absenteesByDateMap[isoDate] = { displayDate: new Date(session.date).toLocaleDateString(), absentees: [] };
+          if (!absenteesByDateMap[isoDate]) {
+            absenteesByDateMap[isoDate] = { displayDate: new Date(session.date).toLocaleDateString(), absentees: [] };
+          }
           (session.attendances || []).forEach((att) => {
-            if (att.status === 'present') { presentCount++; if (studentMap[att.studentId]?.classrooms[classroom.id]) studentMap[att.studentId].classrooms[classroom.id].present++; }
-            else if (att.status === 'absent') { absentCount++; const st = studentMap[att.studentId]; absenteesByDateMap[isoDate].absentees.push({ studentId: att.studentId, studentName: st?.studentName || 'Unknown', rollNumber: st?.rollNumber || '-', classroomName: classroom.name, courseName: classroom.course?.name || classroom.name, remarks: att.remarks || '', classroomId: classroom.id, sessionId: session.id, attendanceId: att.id }); }
+            if (att.status === 'present') {
+              presentCount++;
+              if (studentMap[att.studentId]?.classrooms[classroom.id]) {
+                studentMap[att.studentId].classrooms[classroom.id].present++;
+              }
+            } else if (att.status === 'absent') {
+              absentCount++;
+              const st = studentMap[att.studentId];
+              absenteesByDateMap[isoDate].absentees.push({
+                studentId: att.studentId, studentName: st?.studentName || 'Unknown',
+                rollNumber: st?.rollNumber || '-', classroomName: classroom.name,
+                courseName: classroom.course?.name || classroom.name,
+                remarks: att.remarks || '', classroomId: classroom.id,
+                sessionId: session.id, attendanceId: att.id
+              });
+            }
           });
         });
-        Object.values(studentMap).forEach((s) => { const cr = s.classrooms[classroom.id]; if (cr && cr.total > 0) cr.percentage = (cr.present / cr.total) * 100; });
-        classroomSummaries.push({ classroomId: classroom.id, classroomName: classroom.name, courseName: classroom.course?.name || null, totalSessions, presentCount, absentCount, attendancePercentage: totalSessions > 0 ? (presentCount / (presentCount + absentCount)) * 100 : 0, lastSessionDate: sessions.length > 0 ? sessions.reduce((l, s) => new Date(s.date) > new Date(l.date) ? s : l).date : null, studentCount: batchStudents.length });
-      } catch { classroomSummaries.push({ classroomId: classroom.id, classroomName: classroom.name, courseName: classroom.course?.name || null, totalSessions: 0, presentCount: 0, absentCount: 0, attendancePercentage: 0, lastSessionDate: null, studentCount: 0 }); }
+        
+        Object.values(studentMap).forEach((s) => {
+          const cr = s.classrooms[classroom.id];
+          if (cr && cr.total > 0) cr.percentage = (cr.present / cr.total) * 100;
+        });
+        
+        classroomSummaries.push({
+          classroomId: classroom.id, classroomName: classroom.name,
+          courseName: classroom.course?.name || null, totalSessions,
+          presentCount, absentCount,
+          attendancePercentage: totalSessions > 0 ? (presentCount / (presentCount + absentCount)) * 100 : 0,
+          lastSessionDate: sessions.length > 0 ? sessions.reduce((l, s) => new Date(s.date) > new Date(l.date) ? s : l).date : null,
+          studentCount: batchStudents.length
+        });
+      } catch {
+        classroomSummaries.push({
+          classroomId: classroom.id, classroomName: classroom.name,
+          courseName: classroom.course?.name || null, totalSessions: 0,
+          presentCount: 0, absentCount: 0, attendancePercentage: 0,
+          lastSessionDate: null, studentCount: 0
+        });
+      }
     }
-    const studentSummaries = Object.values(studentMap).filter((s) => Object.keys(s.classrooms).length > 0).map((s) => { let tp = 0, ts = 0; Object.values(s.classrooms).forEach((cr) => { tp += cr.present; ts += cr.total; }); return { ...s, totalPresent: tp, totalSessions: ts, overallPercentage: ts > 0 ? (tp / ts) * 100 : 0, subjectDetails: Object.values(s.classrooms), activeSubjects: Object.keys(s.classrooms).length }; }).sort((a, b) => (a.studentName || '').localeCompare(b.studentName || ''));
-    const sorted = {}; Object.keys(absenteesByDateMap).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).forEach((d) => { sorted[d] = absenteesByDateMap[d]; });
+    
+    const studentSummaries = Object.values(studentMap)
+      .filter((s) => Object.keys(s.classrooms).length > 0)
+      .map((s) => {
+        let tp = 0, ts = 0;
+        Object.values(s.classrooms).forEach((cr) => { tp += cr.present; ts += cr.total; });
+        return {
+          ...s, totalPresent: tp, totalSessions: ts,
+          overallPercentage: ts > 0 ? (tp / ts) * 100 : 0,
+          subjectDetails: Object.values(s.classrooms),
+          activeSubjects: Object.keys(s.classrooms).length
+        };
+      })
+      .sort((a, b) => (a.studentName || '').localeCompare(b.studentName || ''));
+    
+    const sorted = {};
+    Object.keys(absenteesByDateMap)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+      .forEach((d) => { sorted[d] = absenteesByDateMap[d]; });
+    
     return { classroomSummaries, studentSummaries, absenteesByDate: sorted };
   }, [api, getClassroomsForSemester]);
 
-  const fetchBatchAttendanceSummary = useCallback(async (bid, semester) => { const key = bid + '-' + semester; setLoadingAttendance(true); try { const s = await computeDetailedAttendanceSummary(bid, semester); setBatchAttendanceSummaries((p) => ({ ...p, [key]: s })); return s; } catch { return { classroomSummaries: [], studentSummaries: [], absenteesByDate: {} }; } finally { setLoadingAttendance(false); } }, [computeDetailedAttendanceSummary]);
+  const fetchBatchAttendanceSummary = useCallback(async (bid, semester) => {
+    const key = bid + '-' + semester;
+    setLoadingAttendance(true);
+    try {
+      const s = await computeDetailedAttendanceSummary(bid, semester);
+      setBatchAttendanceSummaries((p) => ({ ...p, [key]: s }));
+      return s;
+    } catch {
+      return { classroomSummaries: [], studentSummaries: [], absenteesByDate: {} };
+    } finally {
+      setLoadingAttendance(false);
+    }
+  }, [computeDetailedAttendanceSummary]);
 
-  const getBatchAttendanceOverview = useCallback((bid, semester) => { const s = batchAttendanceSummaries[bid + '-' + semester]; if (!s?.classroomSummaries?.length) return null; const tp = s.classroomSummaries.reduce((sum, i) => sum + (i.presentCount || 0), 0); const ts = s.classroomSummaries.reduce((sum, i) => sum + (i.totalSessions || 0), 0); return { totalClassrooms: s.classroomSummaries.length, totalPresent: tp, totalSessions: ts, avgPercentage: ts > 0 ? (tp / ts) * 100 : 0, studentCount: s.studentSummaries.length }; }, [batchAttendanceSummaries]);
+  const getBatchAttendanceOverview = useCallback((bid, semester) => {
+    const s = batchAttendanceSummaries[bid + '-' + semester];
+    if (!s?.classroomSummaries?.length) return null;
+    const tp = s.classroomSummaries.reduce((sum, i) => sum + (i.presentCount || 0), 0);
+    const ts = s.classroomSummaries.reduce((sum, i) => sum + (i.totalSessions || 0), 0);
+    return {
+      totalClassrooms: s.classroomSummaries.length, totalPresent: tp,
+      totalSessions: ts, avgPercentage: ts > 0 ? (tp / ts) * 100 : 0,
+      studentCount: s.studentSummaries.length
+    };
+  }, [batchAttendanceSummaries]);
 
-  const openAttendanceReport = useCallback(async (batch, semester) => { setAttendanceReportBatch({ ...batch, selectedSemester: semester }); setLoadingAttendance(true); setShowAttendanceReport(true); setReportViewTab('classroom'); setExpandedDate(null); setAbsenteesStudentFilter('all'); const s = await fetchBatchAttendanceSummary(batch.id, semester); setAttendanceReportData(s.classroomSummaries); setStudentAttendanceData(s.studentSummaries); setAbsenteesByDate(s.absenteesByDate || {}); setEditingRemarks({}); setLoadingAttendance(false); }, [fetchBatchAttendanceSummary]);
+  const openAttendanceReport = useCallback(async (batch, semester) => {
+    setAttendanceReportBatch({ ...batch, selectedSemester: semester });
+    setLoadingAttendance(true);
+    setShowAttendanceReport(true);
+    setReportViewTab('classroom');
+    setExpandedDate(null);
+    setAbsenteesStudentFilter('all');
+    const s = await fetchBatchAttendanceSummary(batch.id, semester);
+    setAttendanceReportData(s.classroomSummaries);
+    setStudentAttendanceData(s.studentSummaries);
+    setAbsenteesByDate(s.absenteesByDate || {});
+    setEditingRemarks({});
+    setLoadingAttendance(false);
+  }, [fetchBatchAttendanceSummary]);
 
-  // Absentees student list for filter
   const absenteesStudentList = useMemo(() => {
     if (!absenteesByDate || !Object.keys(absenteesByDate).length) return [];
     const studentSet = new Map();
-    Object.values(absenteesByDate).forEach((info) => { info.absentees.forEach((a) => { if (!studentSet.has(a.studentId)) studentSet.set(a.studentId, { studentId: a.studentId, studentName: a.studentName, rollNumber: a.rollNumber }); }); });
+    Object.values(absenteesByDate).forEach((info) => {
+      info.absentees.forEach((a) => {
+        if (!studentSet.has(a.studentId)) {
+          studentSet.set(a.studentId, { studentId: a.studentId, studentName: a.studentName, rollNumber: a.rollNumber });
+        }
+      });
+    });
     return Array.from(studentSet.values()).sort((a, b) => a.studentName.localeCompare(b.studentName));
   }, [absenteesByDate]);
 
@@ -200,7 +686,10 @@ export default function ClassroomPage() {
     if (absenteesStudentFilter === 'all') return absenteesByDate;
     const studentId = parseInt(absenteesStudentFilter);
     const filtered = {};
-    Object.entries(absenteesByDate).forEach(([date, info]) => { const matchedAbsentees = info.absentees.filter((a) => a.studentId === studentId); if (matchedAbsentees.length > 0) filtered[date] = { ...info, absentees: matchedAbsentees }; });
+    Object.entries(absenteesByDate).forEach(([date, info]) => {
+      const matchedAbsentees = info.absentees.filter((a) => a.studentId === studentId);
+      if (matchedAbsentees.length > 0) filtered[date] = { ...info, absentees: matchedAbsentees };
+    });
     return filtered;
   }, [absenteesByDate, absenteesStudentFilter]);
 
@@ -210,140 +699,1006 @@ export default function ClassroomPage() {
     const info = absenteesByDate[isoDate];
     if (!info?.absentees?.length) return;
     const updates = [];
-    info.absentees.forEach((a) => { const remarkKey = a.attendanceId + '_' + a.sessionId; const newRemark = editingRemarks[remarkKey]; if (newRemark !== undefined && newRemark !== (a.remarks || '')) updates.push({ ...a, newRemark }); });
-    if (updates.length === 0) { addToast('warning', 'No Changes', 'No remarks were modified'); return; }
+    info.absentees.forEach((a) => {
+      const remarkKey = a.attendanceId + '_' + a.sessionId;
+      const newRemark = editingRemarks[remarkKey];
+      if (newRemark !== undefined && newRemark !== (a.remarks || '')) updates.push({ ...a, newRemark });
+    });
+    if (updates.length === 0) {
+      addToast('warning', 'No Changes', 'No remarks were modified');
+      return;
+    }
     setSavingAllRemarks(true);
     try {
-      for (const update of updates) { await api('/attendances/' + update.attendanceId, { method: 'PUT', body: JSON.stringify({ remarks: update.newRemark }) }); }
+      for (const update of updates) {
+        await api('/attendances/' + update.attendanceId, { method: 'PUT', body: JSON.stringify({ remarks: update.newRemark }) });
+      }
       addToast('success', 'Saved', updates.length + ' remark(s) updated');
-      if (attendanceReportBatch) { const summary = await fetchBatchAttendanceSummary(attendanceReportBatch.id, attendanceReportBatch.selectedSemester); setAttendanceReportData(summary.classroomSummaries); setStudentAttendanceData(summary.studentSummaries); setAbsenteesByDate(summary.absenteesByDate || {}); }
-    } catch (e) { addToast('error', 'Error', e.message); } finally { setSavingAllRemarks(false); setExpandedDate(null); setEditingRemarks({}); }
+      if (attendanceReportBatch) {
+        const summary = await fetchBatchAttendanceSummary(attendanceReportBatch.id, attendanceReportBatch.selectedSemester);
+        setAttendanceReportData(summary.classroomSummaries);
+        setStudentAttendanceData(summary.studentSummaries);
+        setAbsenteesByDate(summary.absenteesByDate || {});
+      }
+    } catch (e) {
+      addToast('error', 'Error', e.message);
+    } finally {
+      setSavingAllRemarks(false);
+      setExpandedDate(null);
+      setEditingRemarks({});
+    }
   }, [absenteesByDate, editingRemarks, api, addToast, attendanceReportBatch, fetchBatchAttendanceSummary]);
 
   // ==================== CLASSROOM CRUD ====================
-  const handleToggleClassroomStatus = useCallback(async (cls) => { const key = 's-' + cls.id; if (updatingStatus[key]) return; if (cls.status !== 'active') { const targetSemester = cls.semester || 'semester1'; const activeInOtherSemester = getClassroomsForBatch(cls.batchId).filter((c) => c.id !== cls.id && c.status === 'active' && (c.semester || 'semester1') !== targetSemester); if (activeInOtherSemester.length > 0) { const activeNames = activeInOtherSemester.map((c) => { const semLabel = SEMESTERS.find((s) => s.key === c.semester)?.short || c.semester; return `"${c.name}" (${semLabel})`; }).join(', '); addToast('error', 'Cannot Activate', `Another semester already has an active classroom: ${activeNames}. Deactivate it first.`); return; } } const oldStatus = cls.status; const newStatus = oldStatus === 'active' ? 'inactive' : oldStatus === 'inactive' ? 'archived' : 'active'; setAllClassrooms((prev) => prev.map((c) => c.id === cls.id ? { ...c, status: newStatus } : c)); setUpdatingStatus((prev) => ({ ...prev, [key]: true })); try { await api('/classrooms/' + cls.id, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) }); addToast('success', 'Status Updated', `"${cls.name}" marked as ${newStatus}`); } catch (e) { setAllClassrooms((prev) => prev.map((c) => c.id === cls.id ? { ...c, status: oldStatus } : c)); addToast('error', 'Error', e.message); } finally { setUpdatingStatus((prev) => { const n = { ...prev }; delete n[key]; return n; }); } }, [updatingStatus, api, addToast, getClassroomsForBatch]);
-  const handleDeleteClassroom = useCallback(async (cls) => { showConfirm('Delete Classroom', `Delete "${cls.name}"?`, async () => { setConfirmDialog((prev) => ({ ...prev, isOpen: false })); const old = [...allClassrooms]; setAllClassrooms((prev) => prev.filter((c) => c.id !== cls.id)); try { await api('/classrooms/' + cls.id, { method: 'DELETE' }); addToast('success', 'Deleted', `"${cls.name}" deleted`); } catch (e) { setAllClassrooms(old); addToast('error', 'Error', e.message); } }, 'Delete', 'bg-red-600 hover:bg-red-700'); }, [api, addToast, allClassrooms, showConfirm]);
-  const handleDeleteSemesterClassrooms = useCallback(async (batch, semester) => { const semLabel = SEMESTERS.find((s) => s.key === semester)?.short || semester; const classrooms = getClassroomsForSemester(batch.id, semester); if (classrooms.length === 0) { addToast('warning', 'No Classrooms', `No classrooms found for ${semLabel}`); return; } showConfirm(`Delete ${semLabel}`, `Delete ALL ${classrooms.length} classrooms in ${semLabel}?`, async () => { setConfirmDialog((prev) => ({ ...prev, isOpen: false })); const old = [...allClassrooms]; const ids = classrooms.map((c) => c.id); setAllClassrooms((prev) => prev.filter((c) => !ids.includes(c.id))); try { await Promise.all(classrooms.map((c) => api('/classrooms/' + c.id, { method: 'DELETE' }))); addToast('success', 'Deleted', `${classrooms.length} classrooms from ${semLabel}`); } catch (e) { setAllClassrooms(old); addToast('error', 'Error', e.message); } }, `Delete ${semLabel}`, 'bg-red-600 hover:bg-red-700'); }, [api, addToast, allClassrooms, getClassroomsForSemester, showConfirm]);
-  const handleDeleteAllClassrooms = useCallback(async (bid, bname) => { const classrooms = getClassroomsForBatch(bid); if (classrooms.length === 0) { addToast('warning', 'No Classrooms', 'No classrooms to delete'); return; } showConfirm('Delete All', `Delete ALL ${classrooms.length} classrooms in "${bname}"?`, async () => { setConfirmDialog((prev) => ({ ...prev, isOpen: false })); const old = [...allClassrooms]; setAllClassrooms((prev) => prev.filter((c) => c.batchId !== bid)); try { await Promise.all(classrooms.map((c) => api('/classrooms/' + c.id, { method: 'DELETE' }))); addToast('success', 'Deleted', `${classrooms.length} classrooms from "${bname}"`); } catch (e) { setAllClassrooms(old); addToast('error', 'Error', e.message); } }, 'Delete All', 'bg-red-600 hover:bg-red-700'); }, [api, addToast, allClassrooms, getClassroomsForBatch, showConfirm]);
-  const handleCreateSemesterClassrooms = useCallback(async (batch, semester) => { const semLabel = SEMESTERS.find((s) => s.key === semester)?.short || semester; const deptId = batch.departments?.[0]?.id; if (!deptId) { addToast('warning', 'No Department', 'No department assigned'); return; } api('/courses?departmentId=' + deptId + '&semester=' + semester).then((res) => { const courses = (res.courses || []).filter((c) => c.semester === semester); if (courses.length === 0) { addToast('warning', 'No Courses', `No courses for ${semLabel}`); return; } showConfirm(`Create ${semLabel}`, `Create ${courses.length} classroom(s) for ${semLabel}?`, async () => { setConfirmDialog((prev) => ({ ...prev, isOpen: false })); try { let created = 0, failed = 0; for (const course of courses) { try { await api('/classrooms', { method: 'POST', body: JSON.stringify({ batchId: batch.id, name: course.name, code: batch.name.replace(/\s+/g, '').toUpperCase() + '-' + semester.replace('semester', 'S') + '-' + course.code, capacity: 60, departmentId: parseInt(deptId), semester, courseId: course.id }) }); created++; } catch (err) { failed++; } } addToast('success', 'Created', `${created} for ${semLabel}` + (failed > 0 ? ` (${failed} failed)` : '')); fetchAllData(); } catch (e) { addToast('error', 'Error', e.message); } }, `Create ${semLabel}`, 'bg-slate-600 hover:bg-slate-700'); }).catch((e) => addToast('error', 'Error', e.message)); }, [api, addToast, fetchAllData, showConfirm]);
-  const handleCreateAllClassrooms = useCallback(async (batch) => { const deptId = batch.departments?.[0]?.id; if (!deptId) { addToast('warning', 'No Department', 'No department assigned'); return; } showConfirm('Create All', `Create classrooms for ALL 8 semesters?`, async () => { setConfirmDialog((prev) => ({ ...prev, isOpen: false })); try { let total = 0; for (const sem of ALL_SEMESTER_KEYS) { const res = await api('/courses?departmentId=' + deptId + '&semester=' + sem); for (const course of (res.courses || [])) { try { await api('/classrooms', { method: 'POST', body: JSON.stringify({ batchId: batch.id, name: course.name, code: batch.name.replace(/\s+/g, '').toUpperCase() + '-' + sem.replace('semester', 'S') + '-' + course.code, capacity: 60, departmentId: parseInt(deptId), semester: sem, courseId: course.id }) }); total++; } catch (err) {} } } addToast('success', 'Created', `${total} classrooms across all semesters`); fetchAllData(); } catch (e) { addToast('error', 'Error', e.message); } }, 'Create All', 'bg-green-600 hover:bg-green-700'); }, [api, addToast, fetchAllData, showConfirm]);
+  const handleToggleClassroomStatus = useCallback(async (cls) => {
+    const key = 's-' + cls.id;
+    if (updatingStatus[key]) return;
+    
+    if (cls.status !== 'active') {
+      const targetSemester = cls.semester || 'semester1';
+      const activeInOtherSemester = getClassroomsForBatch(cls.batchId).filter(
+        (c) => c.id !== cls.id && c.status === 'active' && (c.semester || 'semester1') !== targetSemester
+      );
+      if (activeInOtherSemester.length > 0) {
+        const activeNames = activeInOtherSemester.map((c) => {
+          const semLabel = SEMESTERS.find((s) => s.key === c.semester)?.short || c.semester;
+          return `"${c.name}" (${semLabel})`;
+        }).join(', ');
+        addToast('error', 'Cannot Activate', `Another semester already has an active classroom: ${activeNames}. Deactivate it first.`);
+        return;
+      }
+    }
+    
+    const oldStatus = cls.status;
+    const newStatus = oldStatus === 'active' ? 'inactive' : oldStatus === 'inactive' ? 'archived' : 'active';
+    
+    setAllClassrooms((prev) => prev.map((c) => c.id === cls.id ? { ...c, status: newStatus } : c));
+    setUpdatingStatus((prev) => ({ ...prev, [key]: true }));
+    
+    try {
+      await api('/classrooms/' + cls.id, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
+      addToast('success', 'Status Updated', `"${cls.name}" marked as ${newStatus}`);
+    } catch (e) {
+      setAllClassrooms((prev) => prev.map((c) => c.id === cls.id ? { ...c, status: oldStatus } : c));
+      addToast('error', 'Error', e.message);
+    } finally {
+      setUpdatingStatus((prev) => { const n = { ...prev }; delete n[key]; return n; });
+    }
+  }, [updatingStatus, api, addToast, getClassroomsForBatch]);
 
-  const fetchEditCourses = useCallback(async (did) => { if (!did) { setEditCourses([]); return; } setLoadingEditCourses(true); try { const d = await api('/courses?departmentId=' + did); setEditCourses(d.courses || []); } catch { setEditCourses([]); } finally { setLoadingEditCourses(false); } }, [api]);
-  const validateEditForm = useCallback(() => { const e = {}; if (!editForm.name?.trim()) e.name = 'Required'; if (!editForm.code?.trim()) e.code = 'Required'; if (editForm.capacity && (isNaN(editForm.capacity) || parseInt(editForm.capacity) < 1)) e.capacity = 'Invalid'; setEditFormErrors(e); return Object.keys(e).length === 0; }, [editForm]);
-  const openEditModal = useCallback((cls) => { setEditingClassroom(cls); setEditForm({ name: cls.name || '', code: cls.code || '', capacity: cls.capacity || '', status: cls.status || 'active', semester: cls.semester || 'semester1', departmentId: cls.department?.id || '', courseId: cls.course?.id || '', facultyId: cls.faculty?.id || '' }); setEditFormErrors({}); setFacultySearchQuery(cls.faculty?.name || ''); setShowFacultyDropdown(false); setShowEditModal(true); if (cls.department?.id) fetchEditCourses(cls.department.id); else setEditCourses([]); }, [fetchEditCourses]);
-  const handleEditFieldChange = useCallback((f, v) => { setEditForm((prev) => ({ ...prev, [f]: v })); setEditFormErrors((prev) => ({ ...prev, [f]: undefined })); if (f === 'departmentId') { setEditForm((prev) => ({ ...prev, courseId: '' })); if (v) fetchEditCourses(v); else setEditCourses([]); } }, [fetchEditCourses]);
-  const saveEdit = useCallback(async () => { if (!validateEditForm()) return; setSavingEdit(true); try { await api('/classrooms/' + editingClassroom.id, { method: 'PUT', body: JSON.stringify({ name: editForm.name.trim(), code: editForm.code.trim(), capacity: editForm.capacity ? parseInt(editForm.capacity) : null, status: editForm.status, departmentId: editForm.departmentId ? parseInt(editForm.departmentId) : null, semester: editForm.semester, courseId: editForm.courseId ? parseInt(editForm.courseId) : null, facultyId: editForm.facultyId ? parseInt(editForm.facultyId) : null }) }); addToast('success', 'Updated', 'Classroom updated'); setShowEditModal(false); await fetchAllData(); } catch (e) { addToast('error', 'Error', e.message); } finally { setSavingEdit(false); } }, [api, addToast, editingClassroom, editForm, fetchAllData, validateEditForm]);
-  const handleQuickAction = useCallback((cls, action) => { if (action === 'attendance') router.push('/dashboard/classroom/' + cls.id); else window.open('/dashboard/classroom/' + cls.id + '/' + action, '_blank'); }, [router]);
+  const handleDeleteClassroom = useCallback(async (cls) => {
+    showConfirm('Delete Classroom', `Delete "${cls.name}"?`, async () => {
+      setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      const old = [...allClassrooms];
+      setAllClassrooms((prev) => prev.filter((c) => c.id !== cls.id));
+      try {
+        await api('/classrooms/' + cls.id, { method: 'DELETE' });
+        addToast('success', 'Deleted', `"${cls.name}" deleted`);
+      } catch (e) {
+        setAllClassrooms(old);
+        addToast('error', 'Error', e.message);
+      }
+    }, 'Delete', 'bg-red-600 hover:bg-red-700');
+  }, [api, addToast, allClassrooms, showConfirm]);
 
-  const exportToCSV = useCallback((data, filename) => { if (!data?.length) return; const headers = Object.keys(data[0]); const csv = [headers.join(','), ...data.map((row) => headers.map((h) => { const val = row[h] != null ? String(row[h]) : ''; return val.includes(',') ? '"' + val + '"' : val; }).join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = filename + '.csv'; link.click(); URL.revokeObjectURL(link.href); }, []);
+  const handleDeleteSemesterClassrooms = useCallback(async (batch, semester) => {
+    const semLabel = SEMESTERS.find((s) => s.key === semester)?.short || semester;
+    const classrooms = getClassroomsForSemester(batch.id, semester);
+    if (classrooms.length === 0) {
+      addToast('warning', 'No Classrooms', `No classrooms found for ${semLabel}`);
+      return;
+    }
+    showConfirm(`Delete ${semLabel}`, `Delete ALL ${classrooms.length} classrooms in ${semLabel}?`, async () => {
+      setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      const old = [...allClassrooms];
+      const ids = classrooms.map((c) => c.id);
+      setAllClassrooms((prev) => prev.filter((c) => !ids.includes(c.id)));
+      try {
+        await Promise.all(classrooms.map((c) => api('/classrooms/' + c.id, { method: 'DELETE' })));
+        addToast('success', 'Deleted', `${classrooms.length} classrooms from ${semLabel}`);
+      } catch (e) {
+        setAllClassrooms(old);
+        addToast('error', 'Error', e.message);
+      }
+    }, `Delete ${semLabel}`, 'bg-red-600 hover:bg-red-700');
+  }, [api, addToast, allClassrooms, getClassroomsForSemester, showConfirm]);
 
-  if (permissionsLoading) return (<div className="space-y-4 px-4 lg:px-6"><div className="h-16 bg-slate-200 animate-pulse rounded-xl" /><div className="h-96 bg-slate-100 animate-pulse rounded-xl" /></div>);
+  const handleDeleteAllClassrooms = useCallback(async (bid, bname) => {
+    const classrooms = getClassroomsForBatch(bid);
+    if (classrooms.length === 0) {
+      addToast('warning', 'No Classrooms', 'No classrooms to delete');
+      return;
+    }
+    showConfirm('Delete All', `Delete ALL ${classrooms.length} classrooms in "${bname}"?`, async () => {
+      setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      const old = [...allClassrooms];
+      setAllClassrooms((prev) => prev.filter((c) => c.batchId !== bid));
+      try {
+        await Promise.all(classrooms.map((c) => api('/classrooms/' + c.id, { method: 'DELETE' })));
+        addToast('success', 'Deleted', `${classrooms.length} classrooms from "${bname}"`);
+      } catch (e) {
+        setAllClassrooms(old);
+        addToast('error', 'Error', e.message);
+      }
+    }, 'Delete All', 'bg-red-600 hover:bg-red-700');
+  }, [api, addToast, allClassrooms, getClassroomsForBatch, showConfirm]);
+
+  const handleCreateSemesterClassrooms = useCallback(async (batch, semester) => {
+    const semLabel = SEMESTERS.find((s) => s.key === semester)?.short || semester;
+    const deptId = batch.departments?.[0]?.id;
+    if (!deptId) {
+      addToast('warning', 'No Department', 'No department assigned');
+      return;
+    }
+    
+    api('/courses?departmentId=' + deptId + '&semester=' + semester).then((res) => {
+      const courses = (res.courses || []).filter((c) => c.semester === semester);
+      if (courses.length === 0) {
+        addToast('warning', 'No Courses', `No courses for ${semLabel}`);
+        return;
+      }
+      showConfirm(`Create ${semLabel}`, `Create ${courses.length} classroom(s) for ${semLabel}?`, async () => {
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        try {
+          let created = 0, failed = 0;
+          for (const course of courses) {
+            try {
+              await api('/classrooms', {
+                method: 'POST',
+                body: JSON.stringify({
+                  batchId: batch.id, name: course.name,
+                  code: batch.name.replace(/\s+/g, '').toUpperCase() + '-' + semester.replace('semester', 'S') + '-' + course.code,
+                  capacity: 60, departmentId: parseInt(deptId), semester, courseId: course.id
+                })
+              });
+              created++;
+            } catch (err) { failed++; }
+          }
+          addToast('success', 'Created', `${created} for ${semLabel}` + (failed > 0 ? ` (${failed} failed)` : ''));
+          fetchAllData();
+        } catch (e) { addToast('error', 'Error', e.message); }
+      }, `Create ${semLabel}`, 'bg-slate-600 hover:bg-slate-700');
+    }).catch((e) => addToast('error', 'Error', e.message));
+  }, [api, addToast, fetchAllData, showConfirm]);
+
+  const handleCreateAllClassrooms = useCallback(async (batch) => {
+    const deptId = batch.departments?.[0]?.id;
+    if (!deptId) {
+      addToast('warning', 'No Department', 'No department assigned');
+      return;
+    }
+    showConfirm('Create All', `Create classrooms for ALL 8 semesters?`, async () => {
+      setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      try {
+        let total = 0;
+        for (const sem of ALL_SEMESTER_KEYS) {
+          const res = await api('/courses?departmentId=' + deptId + '&semester=' + sem);
+          for (const course of (res.courses || [])) {
+            try {
+              await api('/classrooms', {
+                method: 'POST',
+                body: JSON.stringify({
+                  batchId: batch.id, name: course.name,
+                  code: batch.name.replace(/\s+/g, '').toUpperCase() + '-' + sem.replace('semester', 'S') + '-' + course.code,
+                  capacity: 60, departmentId: parseInt(deptId), semester: sem, courseId: course.id
+                })
+              });
+              total++;
+            } catch (err) {}
+          }
+        }
+        addToast('success', 'Created', `${total} classrooms across all semesters`);
+        fetchAllData();
+      } catch (e) { addToast('error', 'Error', e.message); }
+    }, 'Create All', 'bg-green-600 hover:bg-green-700');
+  }, [api, addToast, fetchAllData, showConfirm]);
+
+  const fetchEditCourses = useCallback(async (did) => {
+    if (!did) { setEditCourses([]); return; }
+    setLoadingEditCourses(true);
+    try {
+      const d = await api('/courses?departmentId=' + did);
+      setEditCourses(d.courses || []);
+    } catch { setEditCourses([]); }
+    finally { setLoadingEditCourses(false); }
+  }, [api]);
+
+  const validateEditForm = useCallback(() => {
+    const e = {};
+    if (!editForm.name?.trim()) e.name = 'Required';
+    if (!editForm.code?.trim()) e.code = 'Required';
+    if (editForm.capacity && (isNaN(editForm.capacity) || parseInt(editForm.capacity) < 1)) e.capacity = 'Invalid';
+    setEditFormErrors(e);
+    return Object.keys(e).length === 0;
+  }, [editForm]);
+
+  const openEditModal = useCallback((cls) => {
+    setEditingClassroom(cls);
+    setEditForm({
+      name: cls.name || '', code: cls.code || '', capacity: cls.capacity || '',
+      status: cls.status || 'active', semester: cls.semester || 'semester1',
+      departmentId: cls.department?.id || '', courseId: cls.course?.id || '',
+      facultyId: cls.faculty?.id || ''
+    });
+    setEditFormErrors({});
+    setFacultySearchQuery(cls.faculty?.name || '');
+    setShowFacultyDropdown(false);
+    setShowEditModal(true);
+    if (cls.department?.id) fetchEditCourses(cls.department.id);
+    else setEditCourses([]);
+  }, [fetchEditCourses]);
+
+  const handleEditFieldChange = useCallback((f, v) => {
+    setEditForm((prev) => ({ ...prev, [f]: v }));
+    setEditFormErrors((prev) => ({ ...prev, [f]: undefined }));
+    if (f === 'departmentId') {
+      setEditForm((prev) => ({ ...prev, courseId: '' }));
+      if (v) fetchEditCourses(v);
+      else setEditCourses([]);
+    }
+  }, [fetchEditCourses]);
+
+  const saveEdit = useCallback(async () => {
+    if (!validateEditForm()) return;
+    setSavingEdit(true);
+    try {
+      await api('/classrooms/' + editingClassroom.id, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: editForm.name.trim(), code: editForm.code.trim(),
+          capacity: editForm.capacity ? parseInt(editForm.capacity) : null,
+          status: editForm.status,
+          departmentId: editForm.departmentId ? parseInt(editForm.departmentId) : null,
+          semester: editForm.semester,
+          courseId: editForm.courseId ? parseInt(editForm.courseId) : null,
+          facultyId: editForm.facultyId ? parseInt(editForm.facultyId) : null
+        })
+      });
+      addToast('success', 'Updated', 'Classroom updated');
+      setShowEditModal(false);
+      await fetchAllData();
+    } catch (e) {
+      addToast('error', 'Error', e.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  }, [api, addToast, editingClassroom, editForm, fetchAllData, validateEditForm]);
+
+  const handleQuickAction = useCallback((cls, action) => {
+    if (action === 'attendance') {
+      router.push('/dashboard/classroom/' + cls.id);
+    } else {
+      router.push('/dashboard/classroom/' + cls.id + '/' + action);
+    }
+  }, [router]);
+
+  const handleSelectSemester = useCallback((bid, sem) => {
+    setSelectedSemester((prev) => { const u = { ...prev, [bid]: sem }; savePrefs('selectedSemester', u); return u; });
+  }, [savePrefs]);
+
+  const handleClassroomStatusFilter = useCallback((bid, f) => {
+    setClassroomStatusFilter((prev) => { const u = { ...prev, [bid]: f }; savePrefs('classroomStatusFilter', u); return u; });
+  }, [savePrefs]);
+
+  const handleBatchStatusFilter = useCallback((v) => { setBatchStatusFilter(v); savePrefs('batchStatusFilter', v); }, [savePrefs]);
+  const handleDepartmentFilter = useCallback((v) => { setDepartmentFilter(v); savePrefs('departmentFilter', v); }, [savePrefs]);
+  const handleViewMode = useCallback((v) => { setViewMode(v); savePrefs('viewMode', v); }, [savePrefs]);
+  const toggleBatch = useCallback((bid) => { setExpandedBatch((prev) => prev === bid ? null : bid); }, []);
+
+  const exportToCSV = useCallback((data, filename) => {
+    if (!data?.length) return;
+    const headers = Object.keys(data[0]);
+    const csv = [
+      headers.join(','),
+      ...data.map((row) => headers.map((h) => {
+        const val = row[h] != null ? String(row[h]) : '';
+        return val.includes(',') ? '"' + val + '"' : val;
+      }).join(','))
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename + '.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }, []);
+
+  if (permissionsLoading) return (
+    <div className="space-y-4 px-4 lg:px-6">
+      <div className="h-16 bg-slate-200 animate-pulse rounded-xl" />
+      <div className="h-96 bg-slate-100 animate-pulse rounded-xl" />
+    </div>
+  );
+  
   if (!hasRead) return <AccessDenied />;
 
   const hasActiveFilters = !!(searchTerm || departmentFilter !== 'all' || batchStatusFilter !== 'all');
 
   return (
     <div className="space-y-4 px-4 lg:px-6 pb-8">
-      <div className="fixed top-4 right-4 z-[200] flex flex-col gap-2 max-w-sm w-full pointer-events-none">{toasts.map((t) => (<div key={t.id} className="pointer-events-auto"><Toast toast={t} onClose={() => removeToast(t.id)} /></div>))}</div>
+      {/* Toasts */}
+      <div className="fixed top-4 right-4 z-[200] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        {toasts.map((t) => (
+          <div key={t.id} className="pointer-events-auto"><Toast toast={t} onClose={() => removeToast(t.id)} /></div>
+        ))}
+      </div>
+      
+      {/* Confirm Dialog */}
       <ConfirmDialog {...confirmDialog} onCancel={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))} />
 
       {/* HEADER */}
       <div className="sticky top-0 z-30 -mx-4 lg:-mx-6 px-4 lg:px-6 py-4 bg-white border-b border-slate-200 shadow-sm">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-slate-400 via-slate-500 to-slate-600 bg-[length:200%_100%] animate-gradient-shift" />
-        <nav className="flex items-center gap-1.5 mb-2"><button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700"><Icons.Home className="w-3.5 h-3.5" />Dashboard</button><Icons.ChevronRight className="w-3.5 h-3.5 text-slate-400" /><span className="flex items-center gap-1.5 text-xs font-medium text-slate-700"><Icons.BookOpen className="w-3.5 h-3.5" />Classroom Management</span></nav>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"><div><h1 className="text-xl font-bold text-slate-800">Classroom Management</h1><div className="flex items-center gap-2 mt-1"><span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[11px] font-medium"><Icons.BookOpen className="w-3 h-3" />{totalActiveClassrooms} active / {totalInactiveClassrooms} inactive / {totalClassrooms} total</span></div></div><div className="flex gap-2 flex-wrap"><div className="flex bg-slate-100 rounded-lg p-1"><button onClick={() => handleViewMode('card')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'card' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Icons.LayoutGrid size={14} className="inline mr-1" />Cards</button><button onClick={() => handleViewMode('list')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}><Icons.List size={14} className="inline mr-1" />List</button></div><button onClick={fetchAllData} className="btn-secondary"><Icons.RefreshCw className="w-3.5 h-3.5" />Refresh</button></div></div>
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2"><div className="relative"><Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" /><input type="text" placeholder="Search batches..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all" /></div><select value={departmentFilter} onChange={(e) => handleDepartmentFilter(e.target.value)} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500"><option value="all">All Departments</option>{allDepartments.map((d) => (<option key={d.id} value={d.id}>{d.name} ({d.code})</option>))}</select><div className="flex items-center gap-1 rounded-lg p-1 bg-slate-100">{[{ key: 'all', icon: Icons.Layers, color: '#64748b', label: 'All' },{ key: 'active', icon: Icons.CheckCircle, color: '#22c55e', label: 'Active' },{ key: 'inactive', icon: Icons.Archive, color: '#ef4444', label: 'Inactive' }].map((t) => (<button key={t.key} onClick={() => handleBatchStatusFilter(t.key)} className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${batchStatusFilter === t.key ? 'text-white shadow-sm' : 'text-slate-600 hover:text-slate-800'}`} style={batchStatusFilter === t.key ? { backgroundColor: t.color } : {}}><t.icon size={12} className="inline mr-1" />{t.label}</button>))}</div></div>
+        <nav className="flex items-center gap-1.5 mb-2">
+          <button onClick={() => router.push('/dashboard')} className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700">
+            <Icons.Home className="w-3.5 h-3.5" />Dashboard
+          </button>
+          <Icons.ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+            <Icons.BookOpen className="w-3.5 h-3.5" />Classroom Management
+          </span>
+        </nav>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">Classroom Management</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[11px] font-medium">
+                <Icons.BookOpen className="w-3 h-3" />{totalActiveClassrooms} active / {totalInactiveClassrooms} inactive / {totalClassrooms} total
+              </span>
+            </div>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <div className="flex bg-slate-100 rounded-lg p-1">
+              <button onClick={() => handleViewMode('card')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'card' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <Icons.LayoutGrid size={14} className="inline mr-1" />Cards
+              </button>
+              <button onClick={() => handleViewMode('list')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${viewMode === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                <Icons.List size={14} className="inline mr-1" />List
+              </button>
+            </div>
+            <button onClick={openGlobalCalendar} className="btn-secondary">
+              <Icons.CalendarDays className="w-3.5 h-3.5" />Global Calendar
+            </button>
+            <button onClick={fetchAllData} className="btn-secondary">
+              <Icons.RefreshCw className="w-3.5 h-3.5" />Refresh
+            </button>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="relative">
+            <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <input type="text" placeholder="Search batches..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all" />
+          </div>
+          <select value={departmentFilter} onChange={(e) => handleDepartmentFilter(e.target.value)} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-500">
+            <option value="all">All Departments</option>
+            {allDepartments.map((d) => (<option key={d.id} value={d.id}>{d.name} ({d.code})</option>))}
+          </select>
+          <div className="flex items-center gap-1 rounded-lg p-1 bg-slate-100">
+            {[
+              { key: 'all', icon: Icons.Layers, color: '#64748b', label: 'All' },
+              { key: 'active', icon: Icons.CheckCircle, color: '#22c55e', label: 'Active' },
+              { key: 'inactive', icon: Icons.Archive, color: '#ef4444', label: 'Inactive' }
+            ].map((t) => (
+              <button key={t.key} onClick={() => handleBatchStatusFilter(t.key)} className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${batchStatusFilter === t.key ? 'text-white shadow-sm' : 'text-slate-600 hover:text-slate-800'}`} style={batchStatusFilter === t.key ? { backgroundColor: t.color } : {}}>
+                <t.icon size={12} className="inline mr-1" />{t.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{[{ icon: Icons.Layers, bg: '#f8fafc', color: '#64748b', label: 'Active Batches', value: activeBatches },{ icon: Icons.Archive, bg: '#fef2f2', color: '#ef4444', label: 'Inactive Batches', value: inactiveBatches },{ icon: Icons.BookOpen, bg: '#eff6ff', color: '#3b82f6', label: 'Active Classrooms', value: totalActiveClassrooms },{ icon: Icons.BookOpen, bg: '#f0fdf4', color: '#22c55e', label: 'Total Classrooms', value: totalClassrooms }].map((s, i) => (<div key={i} className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 hover:shadow-md transition-shadow"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: s.bg }}><s.icon size={20} style={{ color: s.color }} /></div><div><p className="text-xs text-slate-500">{s.label}</p><p className="text-lg font-bold text-slate-800">{s.value}</p></div></div></div>))}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { icon: Icons.Layers, bg: '#f8fafc', color: '#64748b', label: 'Active Batches', value: activeBatches },
+          { icon: Icons.Archive, bg: '#fef2f2', color: '#ef4444', label: 'Inactive Batches', value: inactiveBatches },
+          { icon: Icons.BookOpen, bg: '#eff6ff', color: '#3b82f6', label: 'Active Classrooms', value: totalActiveClassrooms },
+          { icon: Icons.BookOpen, bg: '#f0fdf4', color: '#22c55e', label: 'Total Classrooms', value: totalClassrooms }
+        ].map((s, i) => (
+          <div key={i} className="bg-white rounded-xl p-4 shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: s.bg }}>
+                <s.icon size={20} style={{ color: s.color }} />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">{s.label}</p>
+                <p className="text-lg font-bold text-slate-800">{s.value}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* BATCHES LIST */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="p-4 lg:p-6">
-          {loading ? <LoadingSkeleton /> : filteredBatches.length === 0 ? <EmptyState hasFilters={hasActiveFilters} /> : (<div className="space-y-4">
-            {filteredBatches.map((batch) => {
-              const isExpanded = expandedBatch === batch.id;
-              const statusStyle = getStatusStyle(batch.status);
-              const curSem = selectedSemester[batch.id] || 'semester1';
-              const classroomFilter = classroomStatusFilter[batch.id] || 'all';
-              const filteredClassrooms = getFilteredClassrooms(batch.id, curSem);
-              const fullyCreated = isBatchFullyCreated(batch.id);
-              const bActive = getBatchActiveCount(batch.id), bTotal = getBatchTotalCount(batch.id), bInactive = getBatchInactiveCount(batch.id);
-              const attendanceOverview = getBatchAttendanceOverview(batch.id, curSem);
+          {loading ? <LoadingSkeleton /> : filteredBatches.length === 0 ? <EmptyState hasFilters={hasActiveFilters} /> : (
+            <div className="space-y-4">
+              {filteredBatches.map((batch) => {
+                const isExpanded = expandedBatch === batch.id;
+                const statusStyle = getStatusStyle(batch.status);
+                const curSem = selectedSemester[batch.id] || 'semester1';
+                const classroomFilter = classroomStatusFilter[batch.id] || 'all';
+                const filteredClassrooms = getFilteredClassrooms(batch.id, curSem);
+                const fullyCreated = isBatchFullyCreated(batch.id);
+                const bActive = getBatchActiveCount(batch.id), bTotal = getBatchTotalCount(batch.id), bInactive = getBatchInactiveCount(batch.id);
+                const attendanceOverview = getBatchAttendanceOverview(batch.id, curSem);
 
-              return (<div key={batch.id} ref={(el) => { batchRefs.current[batch.id] = el; }} className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
-                <div onClick={() => toggleBatch(batch.id)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleBatch(batch.id); }}>
-                  <div className="flex items-center gap-4"><Icons.ChevronRight size={18} className="transition-transform duration-200 text-slate-400" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }} /><div><h3 className="font-semibold flex items-center gap-2 text-slate-800">{batch.name}{fullyCreated && <span className="px-2 py-0.5 text-[10px] bg-emerald-100 text-emerald-700 rounded-full font-medium">Complete</span>}</h3><p className="text-xs mt-0.5 text-slate-500">{batch.departments?.map((d) => d.name).join(', ') || 'No Department'} • {formatDate(batch.startDate)} - {formatDate(batch.endDate)}</p>{attendanceOverview && (<div className="mt-2 flex items-center gap-2"><button onClick={(e) => { e.stopPropagation(); openAttendanceReport(batch, curSem); }} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors"><Icons.BarChart3 size={12} />{SEMESTERS.find((s) => s.key === curSem)?.short} Attendance: {attendanceOverview.avgPercentage.toFixed(1)}%<span className="text-[10px] text-blue-500">({attendanceOverview.totalClassrooms} active, {attendanceOverview.studentCount} students)</span></button></div>)}</div></div>
-                  <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}><span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600">{bActive} Active</span><span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-600">{bInactive} Inactive</span><span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-200 text-slate-600">{bTotal} Total</span><span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600">{batch.studentCount || 0} Students</span><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${batch.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>{statusStyle.label}</span></div>
-                </div>
-                {isExpanded && (<div className="border-t border-slate-200"><div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
-                  <div className="flex items-center justify-between flex-wrap gap-2 mb-3"><div className="flex items-center gap-1.5 flex-wrap"><span className="text-xs font-medium mr-1 text-slate-600">Semester:</span>{SEMESTERS.map((sem) => { const counts = getSemesterCounts(batch.id, sem.key); const isActiveSem = curSem === sem.key; const hasClassrooms = counts.total > 0; return (<button key={sem.key} onClick={() => handleSelectSemester(batch.id, sem.key)} className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 ${isActiveSem ? 'text-white shadow-md scale-105' : 'hover:bg-white cursor-pointer'}`} style={isActiveSem ? { background: 'linear-gradient(135deg, #64748b, #475569)' } : { color: '#57534e', backgroundColor: 'transparent', border: '1px solid #e7e5e4' }}><span className="font-semibold">{sem.short}</span>{hasClassrooms ? (<span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActiveSem ? 'bg-white/20' : 'bg-slate-100'}`}><span className="text-emerald-600">{counts.active}a</span> / <span className="text-red-600">{counts.inactive}i</span></span>) : (<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400">0</span>)}</button>); })}</div></div>
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    {hasCreate && !fullyCreated && (<><button onClick={() => handleCreateSemesterClassrooms(batch, curSem)} className="btn-slate text-[11px] py-1.5 px-2.5"><Icons.Plus size={11} /> Create {SEMESTERS.find((s) => s.key === curSem)?.short}</button><button onClick={() => handleCreateAllClassrooms(batch)} className="btn-green text-[11px] py-1.5 px-2.5"><Icons.Layers size={11} /> Create All</button></>)}
-                    {hasDelete && (<>{getSemesterCounts(batch.id, curSem).total > 0 && (<button onClick={() => handleDeleteSemesterClassrooms(batch, curSem)} className="btn-danger text-[11px] py-1.5 px-2.5"><Icons.Trash2 size={11} /> Delete {SEMESTERS.find((s) => s.key === curSem)?.short}</button>)}{bTotal > 0 && (<button onClick={() => handleDeleteAllClassrooms(batch.id, batch.name)} className="btn-danger-outline text-[11px] py-1.5 px-2.5"><Icons.Trash2 size={11} /> Delete All</button>)}</>)}
-                    <button onClick={() => openAttendanceReport(batch, curSem)} className="btn-secondary text-[11px] py-1.5 px-2.5"><Icons.BarChart3 size={11} /> Report</button>
+                return (
+                  <div key={batch.id} ref={(el) => { batchRefs.current[batch.id] = el; }} className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
+                    <div onClick={() => toggleBatch(batch.id)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors text-left cursor-pointer" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleBatch(batch.id); }}>
+                      <div className="flex items-center gap-4">
+                        <Icons.ChevronRight size={18} className="transition-transform duration-200 text-slate-400" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }} />
+                        <div>
+                          <h3 className="font-semibold flex items-center gap-2 text-slate-800">
+                            {batch.name}
+                            {fullyCreated && <span className="px-2 py-0.5 text-[10px] bg-emerald-100 text-emerald-700 rounded-full font-medium">Complete</span>}
+                          </h3>
+                          <p className="text-xs mt-0.5 text-slate-500">
+                            {batch.departments?.map((d) => d.name).join(', ') || 'No Department'} • {formatDate(batch.startDate)} - {formatDate(batch.endDate)}
+                          </p>
+                          {attendanceOverview && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <button onClick={(e) => { e.stopPropagation(); openAttendanceReport(batch, curSem); }} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors">
+                                <Icons.BarChart3 size={12} />{SEMESTERS.find((s) => s.key === curSem)?.short} Attendance: {attendanceOverview.avgPercentage.toFixed(1)}%
+                                <span className="text-[10px] text-blue-500">({attendanceOverview.totalClassrooms} active, {attendanceOverview.studentCount} students)</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={(e) => { e.stopPropagation(); openBatchCalendar(batch.id); }} className="p-2 rounded-lg hover:bg-blue-50 text-blue-600" title="Batch Calendar">
+                          <Icons.CalendarDays size={16} />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); setShowExamConfig(batch.id); }} className="p-2 rounded-lg hover:bg-purple-50 text-purple-600" title="Configure Examinations">
+                          <Icons.ClipboardCheck size={16} />
+                        </button>
+                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600">{bActive} Active</span>
+                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-600">{bInactive} Inactive</span>
+                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-200 text-slate-600">{bTotal} Total</span>
+                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600">{batch.studentCount || 0} Students</span>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${batch.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>{statusStyle.label}</span>
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div className="border-t border-slate-200">
+                        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+                          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-medium mr-1 text-slate-600">Semester:</span>
+                              {SEMESTERS.map((sem) => {
+                                const counts = getSemesterCounts(batch.id, sem.key);
+                                const isActiveSem = curSem === sem.key;
+                                const hasClassrooms = counts.total > 0;
+                                return (
+                                  <button key={sem.key} onClick={() => handleSelectSemester(batch.id, sem.key)} className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 ${isActiveSem ? 'text-white shadow-md scale-105' : 'hover:bg-white cursor-pointer'}`} style={isActiveSem ? { background: 'linear-gradient(135deg, #64748b, #475569)' } : { color: '#57534e', backgroundColor: 'transparent', border: '1px solid #e7e5e4' }}>
+                                    <span className="font-semibold">{sem.short}</span>
+                                    {hasClassrooms ? (
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActiveSem ? 'bg-white/20' : 'bg-slate-100'}`}>
+                                        <span className="text-emerald-600">{counts.active}a</span> / <span className="text-red-600">{counts.inactive}i</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400">0</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            {hasCreate && !fullyCreated && (
+                              <>
+                                <button onClick={() => handleCreateSemesterClassrooms(batch, curSem)} className="btn-slate text-[11px] py-1.5 px-2.5"><Icons.Plus size={11} /> Create {SEMESTERS.find((s) => s.key === curSem)?.short}</button>
+                                <button onClick={() => handleCreateAllClassrooms(batch)} className="btn-green text-[11px] py-1.5 px-2.5"><Icons.Layers size={11} /> Create All</button>
+                              </>
+                            )}
+                            {hasDelete && (
+                              <>
+                                {getSemesterCounts(batch.id, curSem).total > 0 && (
+                                  <button onClick={() => handleDeleteSemesterClassrooms(batch, curSem)} className="btn-danger text-[11px] py-1.5 px-2.5"><Icons.Trash2 size={11} /> Delete {SEMESTERS.find((s) => s.key === curSem)?.short}</button>
+                                )}
+                                {bTotal > 0 && (
+                                  <button onClick={() => handleDeleteAllClassrooms(batch.id, batch.name)} className="btn-danger-outline text-[11px] py-1.5 px-2.5"><Icons.Trash2 size={11} /> Delete All</button>
+                                )}
+                              </>
+                            )}
+                            <button onClick={() => openAttendanceReport(batch, curSem)} className="btn-secondary text-[11px] py-1.5 px-2.5"><Icons.BarChart3 size={11} /> Report</button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-slate-600">Show:</span>
+                            <div className="flex items-center gap-1 rounded-lg p-1 bg-white border border-slate-200">
+                              {[
+                                { key: 'all', icon: Icons.Layers, color: '#64748b', label: 'All' },
+                                { key: 'active', icon: Icons.CheckCircle, color: '#22c55e', label: 'Active' },
+                                { key: 'inactive', icon: Icons.Archive, color: '#ef4444', label: 'Inactive' }
+                              ].map((t) => (
+                                <button key={t.key} onClick={() => handleClassroomStatusFilter(batch.id, t.key)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${classroomFilter === t.key ? 'text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`} style={classroomFilter === t.key ? { backgroundColor: t.color } : {}}>
+                                  <t.icon size={11} className="inline mr-1" />{t.label} ({t.key === 'all' ? bTotal : t.key === 'active' ? bActive : bInactive})
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="transition-all duration-300">
+                          {filteredClassrooms.length === 0 ? (
+                            <div className="text-center py-8">
+                              <Icons.BookOpen size={32} className="mx-auto mb-2 text-slate-300" />
+                              <p className="text-sm text-slate-500">{classroomFilter === 'active' ? 'No active classrooms' : classroomFilter === 'inactive' ? 'No inactive classrooms' : 'No classrooms'}</p>
+                            </div>
+                          ) : viewMode === 'card' ? (
+                            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                              {filteredClassrooms.map((c) => {
+                                const stl = getStatusStyle(c.status);
+                                return (
+                                  <div key={c.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all p-4 flex flex-col">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center">
+                                        <Icons.BookOpen size={18} className="text-white" />
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        {hasUpdate && <button onClick={() => openEditModal(c)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600"><Icons.Edit2 size={14} /></button>}
+                                        <button onClick={() => handleToggleClassroomStatus(c)} className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: stl.bg, color: stl.color }}>{stl.label}</button>
+                                      </div>
+                                    </div>
+                                    <h4 className="font-semibold text-sm mb-1 text-slate-800">{c.name}</h4>
+                                    <p className="text-xs mb-1 text-slate-600">{c.course?.name || 'No Course'}</p>
+                                    {c.faculty && <p className="text-xs mb-1 text-slate-500">{c.faculty.name}</p>}
+                                    <p className="text-[10px] text-slate-400 mb-1">{SEMESTERS.find((s) => s.key === c.semester)?.label || c.semester}</p>
+                                    <div className="flex items-center gap-2 text-xs mb-3 text-slate-500">
+                                      <span className="px-1.5 py-0.5 rounded bg-slate-100">{c.code || 'No Code'}</span>
+                                      <span>Cap: {c.capacity || '-'}</span>
+                                    </div>
+                                    <div className="mt-auto pt-3 border-t border-slate-200">
+                                      <p className="text-[10px] font-medium mb-2 text-slate-500">Quick Actions:</p>
+                                      <div className="grid grid-cols-4 gap-1">
+                                        {[
+                                          { icon: Icons.CheckSquare, label: 'Att', action: 'attendance', color: '#22c55e' },
+                                          { icon: Icons.Clock, label: 'Rou', action: 'routine', color: '#3b82f6' },
+                                          { icon: Icons.FileText, label: 'Exam', action: 'exam', color: '#8b5cf6' },
+                                          { icon: Icons.ClipboardList, label: 'Asgn', action: 'assignment', color: '#ef4444' }
+                                        ].map((a) => (
+                                          <button key={a.action} onClick={() => handleQuickAction(c, a.action)} className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg hover:bg-slate-50">
+                                            <a.icon size={14} style={{ color: a.color }} />
+                                            <span className="text-[9px] font-medium text-slate-600">{a.label}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    {hasDelete && (
+                                      <button onClick={() => handleDeleteClassroom(c)} className="w-full mt-2 py-1.5 rounded-lg text-xs text-red-600 hover:bg-red-50">
+                                        <Icons.Trash2 size={12} className="inline mr-1" /> Delete
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead className="bg-slate-50">
+                                  <tr>
+                                    {['Classroom','Course','Faculty','Semester','Code','Status','Actions'].map((h) => (
+                                      <th key={h} className="py-3 px-4 text-xs font-semibold text-slate-500 uppercase" style={{ textAlign: h === 'Classroom' ? 'left' : 'center' }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {filteredClassrooms.map((c) => {
+                                    const stl = getStatusStyle(c.status), isUp = updatingStatus['s-' + c.id];
+                                    return (
+                                      <tr key={c.id} className="hover:bg-slate-50/50">
+                                        <td className="py-3 px-4">
+                                          <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center">
+                                              <Icons.BookOpen size={14} className="text-white" />
+                                            </div>
+                                            <p className="text-sm font-medium text-slate-800">{c.name}</p>
+                                          </div>
+                                        </td>
+                                        <td className="py-3 px-4 text-center text-sm text-slate-600">{c.course?.name || '-'}</td>
+                                        <td className="py-3 px-4 text-center text-sm text-slate-600">{c.faculty?.name || '-'}</td>
+                                        <td className="py-3 px-4 text-center text-sm text-slate-600">{SEMESTERS.find((s) => s.key === c.semester)?.short || c.semester}</td>
+                                        <td className="py-3 px-4 text-center text-sm text-slate-600">{c.code || '-'}</td>
+                                        <td className="py-3 px-4 text-center">
+                                          <button onClick={() => handleToggleClassroomStatus(c)} disabled={isUp} className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer ${isUp ? 'opacity-50' : ''}`} style={{ backgroundColor: stl.bg, color: stl.color }}>
+                                            {isUp ? <Icons.Loader2 size={10} className="animate-spin mr-1" /> : null}{stl.label}
+                                          </button>
+                                        </td>
+                                        <td className="py-3 px-4 text-center">
+                                          <div className="flex items-center justify-center gap-1">
+                                            {hasUpdate && <button onClick={() => openEditModal(c)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50"><Icons.Edit2 size={14} /></button>}
+                                            {hasDelete && <button onClick={() => handleDeleteClassroom(c)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"><Icons.Trash2 size={14} /></button>}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2"><span className="text-xs font-medium text-slate-600">Show:</span><div className="flex items-center gap-1 rounded-lg p-1 bg-white border border-slate-200">{[{ key: 'all', icon: Icons.Layers, color: '#64748b', label: 'All' },{ key: 'active', icon: Icons.CheckCircle, color: '#22c55e', label: 'Active' },{ key: 'inactive', icon: Icons.Archive, color: '#ef4444', label: 'Inactive' }].map((t) => (<button key={t.key} onClick={() => handleClassroomStatusFilter(batch.id, t.key)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${classroomFilter === t.key ? 'text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`} style={classroomFilter === t.key ? { backgroundColor: t.color } : {}}><t.icon size={11} className="inline mr-1" />{t.label} ({t.key === 'all' ? bTotal : t.key === 'active' ? bActive : bInactive})</button>))}</div></div>
-                </div>
-                <div className="transition-all duration-300">
-                  {filteredClassrooms.length === 0 ? (<div className="text-center py-8"><Icons.BookOpen size={32} className="mx-auto mb-2 text-slate-300" /><p className="text-sm text-slate-500">{classroomFilter === 'active' ? 'No active classrooms' : classroomFilter === 'inactive' ? 'No inactive classrooms' : 'No classrooms'}</p></div>) : viewMode === 'card' ? (
-                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">{filteredClassrooms.map((c) => { const stl = getStatusStyle(c.status); return (<div key={c.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all p-4 flex flex-col"><div className="flex items-center justify-between mb-3"><div className="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center"><Icons.BookOpen size={18} className="text-white" /></div><div className="flex items-center gap-1">{hasUpdate && <button onClick={() => openEditModal(c)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600"><Icons.Edit2 size={14} /></button>}<button onClick={() => handleToggleClassroomStatus(c)} className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ backgroundColor: stl.bg, color: stl.color }}>{stl.label}</button></div></div><h4 className="font-semibold text-sm mb-1 text-slate-800">{c.name}</h4><p className="text-xs mb-1 text-slate-600">{c.course?.name || 'No Course'}</p>{c.faculty && <p className="text-xs mb-1 text-slate-500">{c.faculty.name}</p>}<p className="text-[10px] text-slate-400 mb-1">{SEMESTERS.find((s) => s.key === c.semester)?.label || c.semester}</p><div className="flex items-center gap-2 text-xs mb-3 text-slate-500"><span className="px-1.5 py-0.5 rounded bg-slate-100">{c.code || 'No Code'}</span><span>Cap: {c.capacity || '-'}</span></div><div className="mt-auto pt-3 border-t border-slate-200"><p className="text-[10px] font-medium mb-2 text-slate-500">Quick Actions:</p><div className="grid grid-cols-5 gap-1">{[{ icon: Icons.CheckSquare, label: 'Att', action: 'attendance', color: '#22c55e' },{ icon: Icons.CalendarDays, label: 'Cal', action: 'calendar', color: '#f59e0b' },{ icon: Icons.Clock, label: 'Rou', action: 'routine', color: '#3b82f6' },{ icon: Icons.FileText, label: 'Exam', action: 'exam', color: '#8b5cf6' },{ icon: Icons.ClipboardList, label: 'Asgn', action: 'assignment', color: '#ef4444' }].map((a) => (<button key={a.action} onClick={() => handleQuickAction(c, a.action)} className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg hover:bg-slate-50"><a.icon size={14} style={{ color: a.color }} /><span className="text-[9px] font-medium text-slate-600">{a.label}</span></button>))}</div></div>{hasDelete && <button onClick={() => handleDeleteClassroom(c)} className="w-full mt-2 py-1.5 rounded-lg text-xs text-red-600 hover:bg-red-50"><Icons.Trash2 size={12} className="inline mr-1" /> Delete</button>}</div>);})}</div>) : (<div className="overflow-x-auto"><table className="w-full"><thead className="bg-slate-50"><tr>{['Classroom','Course','Faculty','Semester','Code','Status','Actions'].map((h) => (<th key={h} className="py-3 px-4 text-xs font-semibold text-slate-500 uppercase" style={{ textAlign: h === 'Classroom' ? 'left' : 'center' }}>{h}</th>))}</tr></thead><tbody className="divide-y divide-slate-100">{filteredClassrooms.map((c) => { const stl = getStatusStyle(c.status), isUp = updatingStatus['s-' + c.id]; return (<tr key={c.id} className="hover:bg-slate-50/50"><td className="py-3 px-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center"><Icons.BookOpen size={14} className="text-white" /></div><p className="text-sm font-medium text-slate-800">{c.name}</p></div></td><td className="py-3 px-4 text-center text-sm text-slate-600">{c.course?.name || '-'}</td><td className="py-3 px-4 text-center text-sm text-slate-600">{c.faculty?.name || '-'}</td><td className="py-3 px-4 text-center text-sm text-slate-600">{SEMESTERS.find((s) => s.key === c.semester)?.short || c.semester}</td><td className="py-3 px-4 text-center text-sm text-slate-600">{c.code || '-'}</td><td className="py-3 px-4 text-center"><button onClick={() => handleToggleClassroomStatus(c)} disabled={isUp} className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer ${isUp ? 'opacity-50' : ''}`} style={{ backgroundColor: stl.bg, color: stl.color }}>{isUp ? <Icons.Loader2 size={10} className="animate-spin mr-1" /> : null}{stl.label}</button></td><td className="py-3 px-4 text-center"><div className="flex items-center justify-center gap-1">{hasUpdate && <button onClick={() => openEditModal(c)} className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50"><Icons.Edit2 size={14} /></button>}{hasDelete && <button onClick={() => handleDeleteClassroom(c)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"><Icons.Trash2 size={14} /></button>}</div></td></tr>); })}</tbody></table></div>)}
-                </div></div>)}
-              </div>);
-            })}
-          </div>)}
+                );
+              })}
+            </div>
+          )}
         </div>
-        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">Showing {filteredBatches.length} of {batches.length} batches</div>
+        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
+          Showing {filteredBatches.length} of {batches.length} batches
+        </div>
       </div>
 
+
+
+{/* GLOBAL CALENDAR MODAL */}
+{showGlobalCalendar && (
+  <CalendarModal
+    isOpen={showGlobalCalendar}
+    onClose={() => setShowGlobalCalendar(false)}
+    batchId={null} // null for global
+    classroomId={null}
+  />
+)}
+
+{/* BATCH CALENDAR MODAL */}
+{showBatchCalendar && (
+  <CalendarModal
+    isOpen={!!showBatchCalendar}
+    onClose={() => setShowBatchCalendar(null)}
+    batchId={showBatchCalendar}
+    classroomId={null}
+  />
+)}
+
+      {/* EXAMINATION CONFIG MODAL */}
+      {showExamConfig && (
+        <ExaminationConfig
+          batch={batches.find(b => b.id === showExamConfig)}
+          onSave={handleSaveExaminations}
+          onClose={() => setShowExamConfig(null)}
+        />
+      )}
+
       {/* ATTENDANCE REPORT MODAL */}
-      {showAttendanceReport && (<div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowAttendanceReport(false)}>
-        <div className="relative bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col border border-slate-200" onClick={e => e.stopPropagation()}>
-          <div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-b border-slate-200">
-            <div><h3 className="text-lg font-bold text-slate-800">Attendance Summary Report</h3><p className="text-xs text-slate-500">{attendanceReportBatch?.name} - {SEMESTERS.find((s) => s.key === attendanceReportBatch?.selectedSemester)?.label || 'Semester 1'}</p></div>
-            <div className="flex items-center gap-2">
-              <div className="flex bg-slate-100 rounded-lg p-1 mr-2">{[{ key: 'classroom', label: 'Classroom' },{ key: 'student', label: 'Student' },{ key: 'absentees', label: 'Absentees' }].map((tab) => (<button key={tab.key} onClick={() => setReportViewTab(tab.key)} className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize ${reportViewTab === tab.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>{tab.label}</button>))}</div>
-              <button onClick={() => { const d = []; if (reportViewTab === 'classroom') attendanceReportData.forEach((i) => d.push({ Classroom: i.classroomName, Course: i.courseName || '-', Sessions: i.totalSessions, Present: i.presentCount, Absent: i.absentCount, '%': (i.attendancePercentage || 0).toFixed(1) + '%', Students: i.studentCount, 'Last Session': formatDate(i.lastSessionDate) })); else if (reportViewTab === 'student') studentAttendanceData.forEach((s) => d.push({ Student: s.studentName, 'Roll No': s.rollNumber, Present: s.totalPresent, Total: s.totalSessions, '%': s.overallPercentage.toFixed(1) + '%' })); else if (reportViewTab === 'absentees') Object.entries(filteredAbsenteesByDate).forEach(([, info]) => { info.absentees.forEach((a) => { d.push({ Date: info.displayDate, Student: a.studentName, 'Roll No': a.rollNumber, Subject: a.courseName || a.classroomName, Remarks: a.remarks || '' }); }); }); exportToCSV(d, (attendanceReportBatch?.name || 'Batch') + '_Report'); }} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 flex items-center gap-1"><Icons.Download size={12} /> Excel</button>
-              <button onClick={() => setShowAttendanceReport(false)} className="p-1 rounded-lg hover:bg-slate-100"><Icons.X size={20} /></button>
+      {showAttendanceReport && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowAttendanceReport(false)}>
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col border border-slate-200" onClick={e => e.stopPropagation()}>
+            <div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-b border-slate-200">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Attendance Summary Report</h3>
+                <p className="text-xs text-slate-500">{attendanceReportBatch?.name} - {SEMESTERS.find((s) => s.key === attendanceReportBatch?.selectedSemester)?.label || 'Semester 1'}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex bg-slate-100 rounded-lg p-1 mr-2">
+                  {[
+                    { key: 'classroom', label: 'Classroom' },
+                    { key: 'student', label: 'Student' },
+                    { key: 'absentees', label: 'Absentees' }
+                  ].map((tab) => (
+                    <button key={tab.key} onClick={() => setReportViewTab(tab.key)} className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize ${reportViewTab === tab.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>{tab.label}</button>
+                  ))}
+                </div>
+                <button onClick={() => {
+                  const d = [];
+                  if (reportViewTab === 'classroom') {
+                    attendanceReportData.forEach((i) => d.push({ Classroom: i.classroomName, Course: i.courseName || '-', Sessions: i.totalSessions, Present: i.presentCount, Absent: i.absentCount, '%': (i.attendancePercentage || 0).toFixed(1) + '%', Students: i.studentCount, 'Last Session': formatDate(i.lastSessionDate) }));
+                  } else if (reportViewTab === 'student') {
+                    studentAttendanceData.forEach((s) => d.push({ Student: s.studentName, 'Roll No': s.rollNumber, Present: s.totalPresent, Total: s.totalSessions, '%': s.overallPercentage.toFixed(1) + '%' }));
+                  } else if (reportViewTab === 'absentees') {
+                    Object.entries(filteredAbsenteesByDate).forEach(([, info]) => {
+                      info.absentees.forEach((a) => { d.push({ Date: info.displayDate, Student: a.studentName, 'Roll No': a.rollNumber, Subject: a.courseName || a.classroomName, Remarks: a.remarks || '' }); });
+                    });
+                  }
+                  exportToCSV(d, (attendanceReportBatch?.name || 'Batch') + '_Report');
+                }} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 flex items-center gap-1">
+                  <Icons.Download size={12} /> Excel
+                </button>
+                <button onClick={() => setShowAttendanceReport(false)} className="p-1 rounded-lg hover:bg-slate-100"><Icons.X size={20} /></button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingAttendance ? (
+                <div className="flex justify-center py-12"><Icons.Loader2 size={32} className="animate-spin text-slate-500" /></div>
+              ) : reportViewTab === 'classroom' ? (
+                !attendanceReportData?.length ? (
+                  <div className="text-center py-12"><Icons.BarChart3 size={48} className="mx-auto mb-4 text-slate-300" /><p className="text-slate-500">No attendance data</p></div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          {['Classroom','Course','Sessions','Present','Absent','%','Students','Last Session'].map((h) => (
+                            <th key={h} className="py-3 px-4 text-xs font-semibold text-slate-700 text-left">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {attendanceReportData.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/30">
+                            <td className="py-3 px-4 text-sm font-medium text-slate-800">{item.classroomName}</td>
+                            <td className="py-3 px-4 text-sm text-slate-600">{item.courseName || '-'}</td>
+                            <td className="py-3 px-4 text-sm text-slate-600">{item.totalSessions || 0}</td>
+                            <td className="py-3 px-4 text-sm text-emerald-600 font-medium">{item.presentCount || 0}</td>
+                            <td className="py-3 px-4 text-sm text-red-600 font-medium">{item.absentCount || 0}</td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-slate-200 rounded-full h-2">
+                                  <div className="h-2 rounded-full" style={{ width: (item.attendancePercentage || 0) + '%', backgroundColor: getAttendanceColor(item.attendancePercentage || 0) }} />
+                                </div>
+                                <span className="text-xs font-medium" style={{ color: getAttendanceColor(item.attendancePercentage || 0) }}>{(item.attendancePercentage || 0).toFixed(1)}%</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-slate-600">{item.studentCount || 0}</td>
+                            <td className="py-3 px-4 text-sm text-slate-500">{formatDate(item.lastSessionDate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              ) : reportViewTab === 'student' ? (
+                !studentAttendanceData?.length ? (
+                  <div className="text-center py-12"><Icons.Users size={48} className="mx-auto mb-4 text-slate-300" /><p className="text-slate-500">No student data</p></div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-xs">
+                      <thead className="bg-slate-50 sticky top-0 z-10">
+                        <tr>
+                          <th className="py-2 px-2 font-semibold text-slate-700 text-left border-r sticky left-0 bg-slate-50 min-w-[120px]">Student</th>
+                          <th className="py-2 px-2 font-semibold text-slate-700 text-left border-r sticky left-[120px] bg-slate-50 min-w-[80px]">Roll No</th>
+                          {(attendanceReportData || []).map((cr) => (
+                            <th key={cr.classroomId} className="py-1 px-1 text-[10px] font-semibold text-slate-700 text-center border-r min-w-[70px]">
+                              <div className="flex flex-col items-center">
+                                <span className="leading-tight max-w-[60px] truncate">{cr.courseName || cr.classroomName}</span>
+                                <span className="text-[9px] text-slate-400">({cr.totalSessions}s)</span>
+                              </div>
+                            </th>
+                          ))}
+                          <th className="py-2 px-2 font-semibold bg-blue-50 text-blue-700 text-center border-r">P</th>
+                          <th className="py-2 px-2 font-semibold bg-blue-50 text-blue-700 text-center border-r">T</th>
+                          <th className="py-2 px-2 font-semibold bg-emerald-50 text-emerald-700 text-center">%</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {studentAttendanceData.map((student) => (
+                          <tr key={student.studentId} className="hover:bg-slate-50/30">
+                            <td className="py-1.5 px-2 font-medium text-slate-800 sticky left-0 bg-white border-r">{student.studentName}</td>
+                            <td className="py-1.5 px-2 text-slate-600 sticky left-[120px] bg-white border-r">{student.rollNumber}</td>
+                            {(attendanceReportData || []).map((cr) => {
+                              const sd = student.subjectDetails?.find((s) => s.classroomId === cr.classroomId);
+                              return (
+                                <td key={cr.classroomId} className="py-1.5 px-1 text-center border-r">
+                                  {sd ? (
+                                    <div className="flex flex-col items-center">
+                                      <span className="font-medium text-[11px]" style={{ color: getAttendanceColor(sd.percentage) }}>{sd.present}/{sd.total}</span>
+                                      <span className="text-[9px]" style={{ color: getAttendanceColor(sd.percentage) }}>{sd.percentage.toFixed(0)}%</span>
+                                    </div>
+                                  ) : <span className="text-slate-300">-</span>}
+                                </td>
+                              );
+                            })}
+                            <td className="py-1.5 px-2 text-center font-bold text-blue-600 bg-blue-50">{student.totalPresent}</td>
+                            <td className="py-1.5 px-2 text-center font-bold text-blue-600 bg-blue-50">{student.totalSessions}</td>
+                            <td className="py-1.5 px-2 text-center">
+                              <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium ${student.overallPercentage >= 75 ? 'bg-emerald-100 text-emerald-800' : student.overallPercentage >= 60 ? 'bg-amber-100 text-amber-800' : student.overallPercentage >= 40 ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800'}`}>
+                                {student.overallPercentage.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-slate-800">Absentees Report by Date</h4>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-600">Filter Student:</span>
+                      <select value={absenteesStudentFilter} onChange={(e) => setAbsenteesStudentFilter(e.target.value)} className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-300 bg-white">
+                        <option value="all">All Students ({absenteesStudentList.length})</option>
+                        {absenteesStudentList.map((student) => (
+                          <option key={student.studentId} value={student.studentId}>{student.studentName} ({student.rollNumber})</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {!Object.keys(filteredAbsenteesByDate).length ? (
+                    <div className="text-center py-12"><Icons.AlertTriangle size={48} className="mx-auto mb-4 text-slate-300" /><p className="text-slate-500">{absenteesStudentFilter !== 'all' ? 'No absentees found for this student' : 'No absentees data'}</p></div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-xs">
+                        <thead className="bg-red-50">
+                          <tr>
+                            <th className="py-2 px-3 text-left text-xs font-semibold text-red-700 border-r w-[120px]">Date</th>
+                            <th className="py-2 px-3 text-left text-xs font-semibold text-red-700 border-r">Absentees</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-red-700 w-[80px]">Count</th>
+                            <th className="py-2 px-3 text-center text-xs font-semibold text-red-700 w-[80px]">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {Object.entries(filteredAbsenteesByDate).map(([isoDate, info]) => {
+                            const isExp = expandedDate === isoDate;
+                            return (
+                              <React.Fragment key={isoDate}>
+                                <tr className={`hover:bg-red-50/30 cursor-pointer ${isExp ? 'bg-red-50/50' : ''}`} onClick={() => toggleDate(isoDate)}>
+                                  <td className="py-2 px-3 font-medium text-slate-800 border-r">
+                                    <div className="flex items-center gap-2">
+                                      <Icons.ChevronRight size={14} className={`transition-transform ${isExp ? 'rotate-90' : ''}`} />
+                                      <span>{info.displayDate}</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-2 px-3 border-r">
+                                    <div className="flex flex-wrap gap-1">
+                                      {info.absentees.slice(0, 8).map((a, i) => (
+                                        <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px]">
+                                          {a.studentName}{a.remarks && <span className="text-[9px] text-red-500" title={a.remarks}>📝</span>}
+                                        </span>
+                                      ))}
+                                      {info.absentees.length > 8 && <span className="text-[10px] text-slate-500">+{info.absentees.length - 8} more</span>}
+                                    </div>
+                                  </td>
+                                  <td className="py-2 px-3 text-center font-bold text-red-700">{info.absentees.length}</td>
+                                  <td className="py-2 px-3 text-center">
+                                    <button onClick={(e) => { e.stopPropagation(); toggleDate(isoDate); }} className="px-2 py-1 text-[10px] bg-white border border-red-200 rounded-lg hover:bg-red-100 text-red-700">
+                                      {isExp ? 'Collapse' : 'Expand'}
+                                    </button>
+                                  </td>
+                                </tr>
+                                {isExp && (
+                                  <tr key={isoDate + '-detail'}>
+                                    <td colSpan={4} className="p-0">
+                                      <div className="bg-slate-50 p-3 border-t">
+                                        <div className="mb-3 flex items-center justify-between">
+                                          <span className="text-xs font-semibold text-slate-700">📝 Edit Remarks for {info.absentees.length} absentees</span>
+                                          <button onClick={(e) => { e.stopPropagation(); saveAllRemarks(isoDate); }} disabled={savingAllRemarks} className="px-3 py-1.5 text-[11px] font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1">
+                                            {savingAllRemarks ? <><Icons.Loader2 size={12} className="animate-spin" /> Saving...</> : <><Icons.Save size={12} /> Save All Remarks</>}
+                                          </button>
+                                        </div>
+                                        <table className="w-full text-xs">
+                                          <thead className="bg-white">
+                                            <tr>
+                                              <th className="py-1.5 px-2 text-left text-[11px] font-semibold text-slate-700 border-b">Student</th>
+                                              <th className="py-1.5 px-2 text-left text-[11px] font-semibold text-slate-700 border-b">Roll No</th>
+                                              <th className="py-1.5 px-2 text-left text-[11px] font-semibold text-slate-700 border-b">Subject</th>
+                                              <th className="py-1.5 px-2 text-left text-[11px] font-semibold text-slate-700 border-b">Remarks</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-slate-200">
+                                            {info.absentees.map((a, i) => {
+                                              const remarkKey = a.attendanceId + '_' + a.sessionId;
+                                              const currentRemark = editingRemarks[remarkKey] !== undefined ? editingRemarks[remarkKey] : (a.remarks || '');
+                                              return (
+                                                <tr key={i} className="hover:bg-white">
+                                                  <td className="py-1.5 px-2 font-medium text-slate-800">{a.studentName}</td>
+                                                  <td className="py-1.5 px-2 text-slate-600">{a.rollNumber}</td>
+                                                  <td className="py-1.5 px-2 text-slate-600">{a.courseName || a.classroomName}</td>
+                                                  <td className="py-1.5 px-2">
+                                                    <input type="text" value={currentRemark} onChange={(e) => setEditingRemarks((prev) => { const next = { ...prev }; next[remarkKey] = e.target.value; return next; })} className="w-full px-2 py-1 text-[11px] border border-slate-300 rounded focus:ring-1 focus:ring-red-300" placeholder="Add reason..." />
+                                                  </td>
+                                                </tr>
+                                              );
+                                            })}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex-shrink-0 flex gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
+              <button onClick={() => setShowAttendanceReport(false)} className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-white">Close</button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-6">
-            {loadingAttendance ? (<div className="flex justify-center py-12"><Icons.Loader2 size={32} className="animate-spin text-slate-500" /></div>) : reportViewTab === 'classroom' ? (
-              !attendanceReportData?.length ? (<div className="text-center py-12"><Icons.BarChart3 size={48} className="mx-auto mb-4 text-slate-300" /><p className="text-slate-500">No attendance data</p></div>) : (<div className="overflow-x-auto"><table className="w-full"><thead className="bg-slate-50"><tr>{['Classroom','Course','Sessions','Present','Absent','%','Students','Last Session'].map((h) => (<th key={h} className="py-3 px-4 text-xs font-semibold text-slate-700 text-left">{h}</th>))}</tr></thead><tbody className="divide-y divide-slate-100">{attendanceReportData.map((item, idx) => (<tr key={idx} className="hover:bg-slate-50/30"><td className="py-3 px-4 text-sm font-medium text-slate-800">{item.classroomName}</td><td className="py-3 px-4 text-sm text-slate-600">{item.courseName || '-'}</td><td className="py-3 px-4 text-sm text-slate-600">{item.totalSessions || 0}</td><td className="py-3 px-4 text-sm text-emerald-600 font-medium">{item.presentCount || 0}</td><td className="py-3 px-4 text-sm text-red-600 font-medium">{item.absentCount || 0}</td><td className="py-3 px-4"><div className="flex items-center gap-2"><div className="flex-1 bg-slate-200 rounded-full h-2"><div className="h-2 rounded-full" style={{ width: (item.attendancePercentage || 0) + '%', backgroundColor: getAttendanceColor(item.attendancePercentage || 0) }} /></div><span className="text-xs font-medium" style={{ color: getAttendanceColor(item.attendancePercentage || 0) }}>{(item.attendancePercentage || 0).toFixed(1)}%</span></div></td><td className="py-3 px-4 text-sm text-slate-600">{item.studentCount || 0}</td><td className="py-3 px-4 text-sm text-slate-500">{formatDate(item.lastSessionDate)}</td></tr>))}</tbody></table></div>)
-            ) : reportViewTab === 'student' ? (
-              !studentAttendanceData?.length ? (<div className="text-center py-12"><Icons.Users size={48} className="mx-auto mb-4 text-slate-300" /><p className="text-slate-500">No student data</p></div>) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-xs">
-                    <thead className="bg-slate-50 sticky top-0 z-10"><tr>
-                      <th className="py-2 px-2 font-semibold text-slate-700 text-left border-r sticky left-0 bg-slate-50 min-w-[120px]">Student</th>
-                      <th className="py-2 px-2 font-semibold text-slate-700 text-left border-r sticky left-[120px] bg-slate-50 min-w-[80px]">Roll No</th>
-                      {(attendanceReportData || []).map((cr) => (<th key={cr.classroomId} className="py-1 px-1 text-[10px] font-semibold text-slate-700 text-center border-r min-w-[70px]"><div className="flex flex-col items-center"><span className="leading-tight max-w-[60px] truncate">{cr.courseName || cr.classroomName}</span><span className="text-[9px] text-slate-400">({cr.totalSessions}s)</span></div></th>))}
-                      <th className="py-2 px-2 font-semibold bg-blue-50 text-blue-700 text-center border-r">P</th>
-                      <th className="py-2 px-2 font-semibold bg-blue-50 text-blue-700 text-center border-r">T</th>
-                      <th className="py-2 px-2 font-semibold bg-emerald-50 text-emerald-700 text-center">%</th>
-                    </tr></thead>
-                    <tbody className="divide-y divide-slate-50">{studentAttendanceData.map((student) => (<tr key={student.studentId} className="hover:bg-slate-50/30"><td className="py-1.5 px-2 font-medium text-slate-800 sticky left-0 bg-white border-r">{student.studentName}</td><td className="py-1.5 px-2 text-slate-600 sticky left-[120px] bg-white border-r">{student.rollNumber}</td>{(attendanceReportData || []).map((cr) => { const sd = student.subjectDetails?.find((s) => s.classroomId === cr.classroomId); return (<td key={cr.classroomId} className="py-1.5 px-1 text-center border-r">{sd ? (<div className="flex flex-col items-center"><span className="font-medium text-[11px]" style={{ color: getAttendanceColor(sd.percentage) }}>{sd.present}/{sd.total}</span><span className="text-[9px]" style={{ color: getAttendanceColor(sd.percentage) }}>{sd.percentage.toFixed(0)}%</span></div>) : (<span className="text-slate-300">-</span>)}</td>); })}<td className="py-1.5 px-2 text-center font-bold text-blue-600 bg-blue-50">{student.totalPresent}</td><td className="py-1.5 px-2 text-center font-bold text-blue-600 bg-blue-50">{student.totalSessions}</td><td className="py-1.5 px-2 text-center"><span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-medium ${student.overallPercentage >= 75 ? 'bg-emerald-100 text-emerald-800' : student.overallPercentage >= 60 ? 'bg-amber-100 text-amber-800' : student.overallPercentage >= 40 ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800'}`}>{student.overallPercentage.toFixed(1)}%</span></td></tr>))}</tbody>
-                  </table>
-                </div>
-              )
-            ) : (
-              <div>
-                <div className="flex items-center justify-between mb-4"><h4 className="font-semibold text-slate-800">Absentees Report by Date</h4><div className="flex items-center gap-2"><span className="text-xs text-slate-600">Filter Student:</span><select value={absenteesStudentFilter} onChange={(e) => setAbsenteesStudentFilter(e.target.value)} className="px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-slate-300 bg-white"><option value="all">All Students ({absenteesStudentList.length})</option>{absenteesStudentList.map((student) => (<option key={student.studentId} value={student.studentId}>{student.studentName} ({student.rollNumber})</option>))}</select></div></div>
-                {!Object.keys(filteredAbsenteesByDate).length ? (<div className="text-center py-12"><Icons.AlertTriangle size={48} className="mx-auto mb-4 text-slate-300" /><p className="text-slate-500">{absenteesStudentFilter !== 'all' ? 'No absentees found for this student' : 'No absentees data'}</p></div>) : (
-                  <div className="overflow-x-auto"><table className="w-full border-collapse text-xs"><thead className="bg-red-50"><tr><th className="py-2 px-3 text-left text-xs font-semibold text-red-700 border-r w-[120px]">Date</th><th className="py-2 px-3 text-left text-xs font-semibold text-red-700 border-r">Absentees</th><th className="py-2 px-3 text-center text-xs font-semibold text-red-700 w-[80px]">Count</th><th className="py-2 px-3 text-center text-xs font-semibold text-red-700 w-[80px]">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">
-                    {Object.entries(filteredAbsenteesByDate).map(([isoDate, info]) => { const isExp = expandedDate === isoDate; return (<React.Fragment key={isoDate}><tr className={`hover:bg-red-50/30 cursor-pointer ${isExp ? 'bg-red-50/50' : ''}`} onClick={() => toggleDate(isoDate)}><td className="py-2 px-3 font-medium text-slate-800 border-r"><div className="flex items-center gap-2"><Icons.ChevronRight size={14} className={`transition-transform ${isExp ? 'rotate-90' : ''}`} /><span>{info.displayDate}</span></div></td><td className="py-2 px-3 border-r"><div className="flex flex-wrap gap-1">{info.absentees.slice(0, 8).map((a, i) => (<span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px]">{a.studentName}{a.remarks && <span className="text-[9px] text-red-500" title={a.remarks}>📝</span>}</span>))}{info.absentees.length > 8 && (<span className="text-[10px] text-slate-500">+{info.absentees.length - 8} more</span>)}</div></td><td className="py-2 px-3 text-center font-bold text-red-700">{info.absentees.length}</td><td className="py-2 px-3 text-center"><button onClick={(e) => { e.stopPropagation(); toggleDate(isoDate); }} className="px-2 py-1 text-[10px] bg-white border border-red-200 rounded-lg hover:bg-red-100 text-red-700">{isExp ? 'Collapse' : 'Expand'}</button></td></tr>{isExp && (<tr key={isoDate + '-detail'}><td colSpan={4} className="p-0"><div className="bg-slate-50 p-3 border-t"><div className="mb-3 flex items-center justify-between"><span className="text-xs font-semibold text-slate-700">📝 Edit Remarks for {info.absentees.length} absentees</span><button onClick={(e) => { e.stopPropagation(); saveAllRemarks(isoDate); }} disabled={savingAllRemarks} className="px-3 py-1.5 text-[11px] font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1">{savingAllRemarks ? <><Icons.Loader2 size={12} className="animate-spin" /> Saving...</> : <><Icons.Save size={12} /> Save All Remarks</>}</button></div><table className="w-full text-xs"><thead className="bg-white"><tr><th className="py-1.5 px-2 text-left text-[11px] font-semibold text-slate-700 border-b">Student</th><th className="py-1.5 px-2 text-left text-[11px] font-semibold text-slate-700 border-b">Roll No</th><th className="py-1.5 px-2 text-left text-[11px] font-semibold text-slate-700 border-b">Subject</th><th className="py-1.5 px-2 text-left text-[11px] font-semibold text-slate-700 border-b">Remarks</th></tr></thead><tbody className="divide-y divide-slate-200">{info.absentees.map((a, i) => { const remarkKey = a.attendanceId + '_' + a.sessionId; const currentRemark = editingRemarks[remarkKey] !== undefined ? editingRemarks[remarkKey] : (a.remarks || ''); return (<tr key={i} className="hover:bg-white"><td className="py-1.5 px-2 font-medium text-slate-800">{a.studentName}</td><td className="py-1.5 px-2 text-slate-600">{a.rollNumber}</td><td className="py-1.5 px-2 text-slate-600">{a.courseName || a.classroomName}</td><td className="py-1.5 px-2"><input type="text" value={currentRemark} onChange={(e) => setEditingRemarks((prev) => { const next = { ...prev }; next[remarkKey] = e.target.value; return next; })} className="w-full px-2 py-1 text-[11px] border border-slate-300 rounded focus:ring-1 focus:ring-red-300" placeholder="Add reason..." /></td></tr>); })}</tbody></table></div></td></tr>)}</React.Fragment>); })}
-                  </tbody></table></div>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="flex-shrink-0 flex gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50"><button onClick={() => setShowAttendanceReport(false)} className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-white">Close</button></div>
         </div>
-      </div>)}
+      )}
 
       {/* EDIT MODAL */}
-      {showEditModal && editingClassroom && (<div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowEditModal(false)}><div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-slate-200" onClick={e => e.stopPropagation()}><div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-b border-slate-200"><div><h3 className="text-lg font-bold text-slate-800">Edit Classroom</h3><p className="text-xs text-slate-500">{editingClassroom.name}</p></div><button onClick={() => setShowEditModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><Icons.X size={20} /></button></div><div className="flex-1 overflow-y-auto p-6 space-y-4"><div><label className="block text-xs font-medium text-slate-600 mb-1">Name *</label><input type="text" value={editForm.name} onChange={(e) => handleEditFieldChange('name', e.target.value)} className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 ${editFormErrors.name ? 'border-red-300' : 'border-slate-200'}`} />{editFormErrors.name && <p className="text-xs text-red-500 mt-1">{editFormErrors.name}</p>}</div><div><label className="block text-xs font-medium text-slate-600 mb-1">Code *</label><input type="text" value={editForm.code} onChange={(e) => handleEditFieldChange('code', e.target.value)} className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 ${editFormErrors.code ? 'border-red-300' : 'border-slate-200'}`} />{editFormErrors.code && <p className="text-xs text-red-500 mt-1">{editFormErrors.code}</p>}</div><div><label className="block text-xs font-medium text-slate-600 mb-1">Capacity</label><input type="number" value={editForm.capacity} onChange={(e) => handleEditFieldChange('capacity', e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300" />{editFormErrors.capacity && <p className="text-xs text-red-500 mt-1">{editFormErrors.capacity}</p>}</div><div><label className="block text-xs font-medium text-slate-600 mb-1">Department</label><select value={editForm.departmentId} onChange={(e) => handleEditFieldChange('departmentId', e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300"><option value="">Select Department</option>{allDepartments.map((dept) => (<option key={dept.id} value={dept.id}>{dept.name} ({dept.code})</option>))}</select></div><div><label className="block text-xs font-medium text-slate-600 mb-1">Course</label>{loadingEditCourses ? <div className="flex items-center gap-2 text-sm text-slate-500"><Icons.Loader2 size={14} className="animate-spin" /> Loading...</div> : <select value={editForm.courseId} onChange={(e) => handleEditFieldChange('courseId', e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300"><option value="">Select Course</option>{editCourses.map((course) => (<option key={course.id} value={course.id}>{course.name} ({course.code}) - {SEMESTERS.find((s) => s.key === course.semester)?.short}</option>))}</select>}</div><div><label className="block text-xs font-medium text-slate-600 mb-1">Semester</label><select value={editForm.semester} onChange={(e) => handleEditFieldChange('semester', e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300">{SEMESTERS.map((sem) => (<option key={sem.key} value={sem.key}>{sem.label}</option>))}</select></div><div><label className="block text-xs font-medium text-slate-600 mb-1">Status</label><select value={editForm.status} onChange={(e) => handleEditFieldChange('status', e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300"><option value="active">Active</option><option value="inactive">Inactive</option><option value="archived">Archived</option></select></div><div><label className="block text-xs font-medium text-slate-600 mb-1">Faculty</label><div className="relative" ref={facultyDropdownRef}><div className="relative"><Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} /><input type="text" value={facultySearchQuery} onChange={(e) => { setFacultySearchQuery(e.target.value); setShowFacultyDropdown(true); if (!e.target.value.trim()) handleEditFieldChange('facultyId', ''); }} onFocus={() => setShowFacultyDropdown(true)} className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300" placeholder="Search faculty..." /></div>{showFacultyDropdown && (<div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto"><button onClick={() => { handleEditFieldChange('facultyId', ''); setFacultySearchQuery(''); setShowFacultyDropdown(false); }} className="w-full px-4 py-2 text-sm text-left text-slate-500 hover:bg-slate-50">No Faculty</button>{filteredFaculties.map((faculty) => (<button key={faculty.id} onClick={() => { handleEditFieldChange('facultyId', faculty.id); setFacultySearchQuery(faculty.name); setShowFacultyDropdown(false); }} className="w-full px-4 py-2 text-sm text-left hover:bg-slate-50 flex items-center justify-between"><div><span className="font-medium text-slate-800">{faculty.name}</span>{faculty.designation && <span className="text-xs text-slate-500 ml-2">({faculty.designation})</span>}</div>{editForm.facultyId === faculty.id && <Icons.Check size={16} className="text-emerald-500" />}</button>))}{filteredFaculties.length === 0 && <div className="px-4 py-2 text-sm text-slate-500 text-center">No faculty found</div>}</div>)}</div>{editForm.facultyId && <p className="text-xs text-emerald-600 mt-1">✓ Faculty assigned</p>}</div></div><div className="flex-shrink-0 flex gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50"><button onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-white">Cancel</button><button onClick={saveEdit} disabled={savingEdit} className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-xl text-sm font-medium hover:bg-slate-900 disabled:opacity-50 flex items-center justify-center gap-2">{savingEdit ? <><Icons.Loader2 size={14} className="animate-spin" /> Saving...</> : 'Save Changes'}</button></div></div></div>)}
+      {showEditModal && editingClassroom && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setShowEditModal(false)}>
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col border border-slate-200" onClick={e => e.stopPropagation()}>
+            <div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-b border-slate-200">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Edit Classroom</h3>
+                <p className="text-xs text-slate-500">{editingClassroom.name}</p>
+              </div>
+              <button onClick={() => setShowEditModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><Icons.X size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Name *</label>
+                <input type="text" value={editForm.name} onChange={(e) => handleEditFieldChange('name', e.target.value)} className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 ${editFormErrors.name ? 'border-red-300' : 'border-slate-200'}`} />
+                {editFormErrors.name && <p className="text-xs text-red-500 mt-1">{editFormErrors.name}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Code *</label>
+                <input type="text" value={editForm.code} onChange={(e) => handleEditFieldChange('code', e.target.value)} className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 ${editFormErrors.code ? 'border-red-300' : 'border-slate-200'}`} />
+                {editFormErrors.code && <p className="text-xs text-red-500 mt-1">{editFormErrors.code}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Capacity</label>
+                <input type="number" value={editForm.capacity} onChange={(e) => handleEditFieldChange('capacity', e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300" />
+                {editFormErrors.capacity && <p className="text-xs text-red-500 mt-1">{editFormErrors.capacity}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Department</label>
+                <select value={editForm.departmentId} onChange={(e) => handleEditFieldChange('departmentId', e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300">
+                  <option value="">Select Department</option>
+                  {allDepartments.map((dept) => (<option key={dept.id} value={dept.id}>{dept.name} ({dept.code})</option>))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Course</label>
+                {loadingEditCourses ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-500"><Icons.Loader2 size={14} className="animate-spin" /> Loading...</div>
+                ) : (
+                  <select value={editForm.courseId} onChange={(e) => handleEditFieldChange('courseId', e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300">
+                    <option value="">Select Course</option>
+                    {editCourses.map((course) => (<option key={course.id} value={course.id}>{course.name} ({course.code}) - {SEMESTERS.find((s) => s.key === course.semester)?.short}</option>))}
+                  </select>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Semester</label>
+                <select value={editForm.semester} onChange={(e) => handleEditFieldChange('semester', e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300">
+                  {SEMESTERS.map((sem) => (<option key={sem.key} value={sem.key}>{sem.label}</option>))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Status</label>
+                <select value={editForm.status} onChange={(e) => handleEditFieldChange('status', e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300">
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Faculty</label>
+                <div className="relative" ref={facultyDropdownRef}>
+                  <div className="relative">
+                    <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <input type="text" value={facultySearchQuery} onChange={(e) => { setFacultySearchQuery(e.target.value); setShowFacultyDropdown(true); if (!e.target.value.trim()) handleEditFieldChange('facultyId', ''); }} onFocus={() => setShowFacultyDropdown(true)} className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300" placeholder="Search faculty..." />
+                  </div>
+                  {showFacultyDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      <button onClick={() => { handleEditFieldChange('facultyId', ''); setFacultySearchQuery(''); setShowFacultyDropdown(false); }} className="w-full px-4 py-2 text-sm text-left text-slate-500 hover:bg-slate-50">No Faculty</button>
+                      {filteredFaculties.map((faculty) => (
+                        <button key={faculty.id} onClick={() => { handleEditFieldChange('facultyId', faculty.id); setFacultySearchQuery(faculty.name); setShowFacultyDropdown(false); }} className="w-full px-4 py-2 text-sm text-left hover:bg-slate-50 flex items-center justify-between">
+                          <div><span className="font-medium text-slate-800">{faculty.name}</span>{faculty.designation && <span className="text-xs text-slate-500 ml-2">({faculty.designation})</span>}</div>
+                          {editForm.facultyId === faculty.id && <Icons.Check size={16} className="text-emerald-500" />}
+                        </button>
+                      ))}
+                      {filteredFaculties.length === 0 && <div className="px-4 py-2 text-sm text-slate-500 text-center">No faculty found</div>}
+                    </div>
+                  )}
+                </div>
+                {editForm.facultyId && <p className="text-xs text-emerald-600 mt-1">✓ Faculty assigned</p>}
+              </div>
+            </div>
+            <div className="flex-shrink-0 flex gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
+              <button onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-white">Cancel</button>
+              <button onClick={saveEdit} disabled={savingEdit} className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-xl text-sm font-medium hover:bg-slate-900 disabled:opacity-50 flex items-center justify-center gap-2">
+                {savingEdit ? <><Icons.Loader2 size={14} className="animate-spin" /> Saving...</> : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .btn-secondary{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem .75rem;background:#f1f5f9;color:#475569;font-size:.75rem;font-weight:600;border-radius:.5rem;border:1px solid #e2e8f0;transition:all .2s}.btn-secondary:hover{background:#e2e8f0}

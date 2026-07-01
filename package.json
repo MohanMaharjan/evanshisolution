@@ -13,6 +13,8 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@remotemerge/nepali-date-converter": "^1.2.0",
+    "@sbmdkl/nepali-date-converter": "^2.0.5",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.4.0",
     "framer-motion": "^12.41.0",
