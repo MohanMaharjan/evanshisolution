@@ -1151,9 +1151,7 @@ export default function ClassroomPage() {
                         <button onClick={(e) => { e.stopPropagation(); openBatchCalendar(batch.id); }} className="p-2 rounded-lg hover:bg-blue-50 text-blue-600" title="Batch Calendar">
                           <Icons.CalendarDays size={16} />
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); setShowExamConfig(batch.id); }} className="p-2 rounded-lg hover:bg-purple-50 text-purple-600" title="Configure Examinations">
-                          <Icons.ClipboardCheck size={16} />
-                        </button>
+                      
                         <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600">{bActive} Active</span>
                         <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-600">{bInactive} Inactive</span>
                         <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-200 text-slate-600">{bTotal} Total</span>

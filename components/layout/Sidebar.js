@@ -14,6 +14,8 @@ import {
   GraduationCap,
   BookOpen,
   CheckSquare,
+  ClipboardList,
+  DoorOpen,
   FileText,
   Book,
   LogOut,

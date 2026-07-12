@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TerminalExamConfigModal from './ExaminationConfig';
-import SemesterReport from './SemesterReport';
+import AcademicCalendarReport from './AcademicCalendarReport';
 import DateConverter from '@remotemerge/nepali-date-converter';
 import {
   X,
@@ -116,6 +116,7 @@ export default function CalendarModal({
   onClose,
   semesterStartDate: propSemesterStartDate,
   semesterEndDate: propSemesterEndDate,
+  institute,
 }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -139,7 +140,7 @@ export default function CalendarModal({
   const [batchInfo, setBatchInfo] = useState(null);
   const [allEvents, setAllEvents] = useState([]);
   const [showTerminalConfig, setShowTerminalConfig] = useState(false);
-  const [showSemesterReport, setShowSemesterReport] = useState(false);
+  const [showAcademicReport, setShowAcademicReport] = useState(false);
   const [terminalConfig, setTerminalConfig] = useState({
     termCount: 2,
     termWeeks: [7, 12],
@@ -680,6 +681,12 @@ export default function CalendarModal({
   };
 
   const handlePrint = () => window.print();
+  
+  // Handle opening the academic report
+  const handleOpenAcademicReport = () => {
+    setShowAcademicReport(true);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -714,26 +721,6 @@ export default function CalendarModal({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="bg-white/10 rounded-lg p-1 flex">
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer ${
-                  viewMode === 'calendar' ? 'bg-white text-indigo-600' : 'text-white/70'
-                }`}
-              >
-                Month
-              </button>
-              {isBatchCalendar && (
-                <button
-                  onClick={() => setViewMode('report')}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer ${
-                    viewMode === 'report' ? 'bg-white text-indigo-600' : 'text-white/70'
-                  }`}
-                >
-                  Semester View
-                </button>
-              )}
-            </div>
             {isBatchCalendar && (
               <>
                 <button
@@ -743,19 +730,13 @@ export default function CalendarModal({
                   <Settings size={14} /> Terminals
                 </button>
                 <button
-                  onClick={() => setShowSemesterReport(true)}
+                  onClick={handleOpenAcademicReport}
                   className="px-3 py-1.5 bg-white/20 text-white rounded-lg text-sm flex items-center gap-1 cursor-pointer hover:bg-white/30 transition-colors"
                 >
-                  <FileText size={14} /> Report
+                  <FileText size={14} /> Calendar Report
                 </button>
               </>
             )}
-            <button
-              onClick={handlePrint}
-              className="px-3 py-1.5 bg-white/20 text-white rounded-lg text-sm flex items-center gap-1 cursor-pointer"
-            >
-              <Printer size={14} /> Print
-            </button>
           </div>
         </div>
 
@@ -1158,10 +1139,10 @@ export default function CalendarModal({
           batch={batchInfo}
         />
 
-        {/* Semester Report Modal */}
-        <SemesterReport
-          isOpen={showSemesterReport}
-          onClose={() => setShowSemesterReport(false)}
+        {/* Academic Calendar Report Modal */}
+        <AcademicCalendarReport
+          isOpen={showAcademicReport}
+          onClose={() => setShowAcademicReport(false)}
           batchId={batchId}
           batchInfo={batchInfo}
           semesterStart={semesterStartDate}
@@ -1169,6 +1150,7 @@ export default function CalendarModal({
           events={events}
           allEvents={allEvents}
           terminalConfig={terminalConfig}
+          institute={institute}
         />
 
         <style jsx global>{`
